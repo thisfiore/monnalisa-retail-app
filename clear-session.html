@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Session</title>
+</head>
+<body>
+    <h1>Clearing session...</h1>
+    <script>
+        sessionStorage.removeItem('session');
+        localStorage.clear();
+        alert('Session cleared! Now refresh your app and log in again.');
+    </script>
+</body>
+</html>
