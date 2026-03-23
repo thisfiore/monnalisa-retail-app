@@ -315,9 +315,9 @@ export function CustomerNew() {
           </div>
           <div className="space-y-4">
             {children.map((child, index) => (
-              <div key={index} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3">
+              <div key={index} className="p-4 bg-gray-50 border border-gray-200 rounded-xl space-y-3 overflow-hidden">
                 <div className="flex items-center justify-between"><h4 className="font-medium text-gray-900 text-sm">Child {index + 1}</h4><button type="button" onClick={() => removeChild(index)} className="text-xs text-red-500 hover:text-red-700 transition-colors cursor-pointer">Remove</button></div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 [&>*]:min-w-0">
                   <Input label="Name" value={child.name || ''} onChange={(e) => updateChild(index, 'name', e.target.value)} />
                   <Input label="Birth Date" type="date" value={child.birthDate || ''} onChange={(e) => updateChild(index, 'birthDate', e.target.value)} error={errors[`child-${index}-birthDate`]} />
                   <div>
@@ -331,7 +331,7 @@ export function CustomerNew() {
                         return (
                           <button key={option.value} type="button" onClick={() => updateChild(index, 'gender', isActive ? '' : option.value)}
                             className={`flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border transition-all text-sm font-medium ${isActive ? `${option.activeBg} ${option.activeBorder} ${option.activeText}` : 'border-gray-300 bg-white hover:border-gray-400 text-gray-500'}`}>
-                            <span>{option.icon}</span>{option.label}
+                            <span className="leading-none text-base">{option.icon}</span>{option.label}
                           </button>
                         );
                       })}

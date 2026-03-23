@@ -24,11 +24,15 @@ export function Header() {
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const searchRef = useRef<HTMLDivElement>(null);
+  const mobileSearchRef = useRef<HTMLDivElement>(null);
+  const desktopSearchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      const insideMobile = mobileSearchRef.current?.contains(target);
+      const insideDesktop = desktopSearchRef.current?.contains(target);
+      if (!insideMobile && !insideDesktop) {
         setShowResults(false);
       }
     };
@@ -167,7 +171,7 @@ export function Header() {
                 <p className="font-medium text-white/90">{session.salesAssociateName}</p>
               </div>
 
-              <div ref={searchRef} className="relative z-10">
+              <div ref={mobileSearchRef} className="relative z-10">
                 <div className="relative">
                   <input
                     type="search"
@@ -222,7 +226,7 @@ export function Header() {
                 <h1 className="hidden text-xl font-bold text-white tracking-wide">MONNALISA</h1>
               </button>
 
-              <div ref={searchRef} className="flex-1 max-w-lg relative z-10">
+              <div ref={desktopSearchRef} className="flex-1 max-w-lg relative z-10">
                 <div className="relative">
                   <input
                     type="search"
