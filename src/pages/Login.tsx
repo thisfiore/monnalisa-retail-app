@@ -3,11 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
-import { Card } from '../components/Card';
 
 export function Login() {
-  const [email, setEmail] = useState('assistant@monnalisa.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('storemanager1@monnalisa.com');
+  const [password, setPassword] = useState('zW~]@sD4feIAN#I#36y@');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -30,33 +29,32 @@ export function Login() {
   };
 
   const handleDemoLogin = () => {
-    setEmail('assistant@monnalisa.com');
-    setPassword('password123');
-    // Trigger submit
+    setEmail('storemanager1@monnalisa.com');
+    setPassword('zW~]@sD4feIAN#I#36y@');
     setTimeout(() => {
       document.getElementById('login-form')?.requestSubmit();
     }, 100);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
+    <div className="min-h-screen bg-gray-900 flex items-center justify-center px-4">
+      <div className="w-full max-w-sm">
+        <div className="text-center mb-10">
           <img
-            src="/monnalisa-logo.jpg"
+            src="/logo-white.png"
             alt="Monnalisa"
-            className="h-16 mx-auto mb-4 object-contain"
+            className="h-14 mx-auto mb-6 object-contain "
             onError={(e) => {
               e.currentTarget.style.display = 'none';
               e.currentTarget.nextElementSibling?.classList.remove('hidden');
             }}
           />
-          <h1 className="hidden text-3xl font-bold text-gray-900 mb-2">MONNALISA</h1>
-          <p className="text-gray-600">Retail Loyalty Access</p>
+          <h1 className="hidden text-3xl font-bold text-white mb-2">MONNALISA</h1>
+          <p className="text-white/50 text-sm">Retail Loyalty Platform</p>
         </div>
 
-        <Card>
-          <form id="login-form" onSubmit={handleSubmit} className="space-y-4">
+        <div className="bg-white rounded-2xl p-8 shadow-2xl">
+          <form id="login-form" onSubmit={handleSubmit} className="space-y-5">
             <Input
               label="Email"
               type="email"
@@ -76,12 +74,12 @@ export function Login() {
             />
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
+              <div className="bg-red-50 border border-red-100 text-red-600 px-4 py-3 rounded-xl text-sm">
                 {error}
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div className="flex gap-2 pt-1">
               <Button type="submit" className="flex-1" isLoading={isLoading}>
                 Sign In
               </Button>
@@ -91,19 +89,19 @@ export function Login() {
                 onClick={handleDemoLogin}
                 disabled={isLoading}
               >
-                Demo Login
+                Demo
               </Button>
             </div>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-sm text-gray-500 text-center">
-              Demo credentials (pre-filled):
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <p className="text-xs text-gray-400 text-center">
+              Demo credentials pre-filled
               <br />
-              <span className="font-mono text-xs">assistant@monnalisa.com / password123</span>
+              <span className="font-mono text-[11px] text-gray-500">storemanager1@monnalisa.com</span>
             </p>
           </div>
-        </Card>
+        </div>
       </div>
     </div>
   );

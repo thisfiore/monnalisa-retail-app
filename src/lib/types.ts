@@ -1,5 +1,7 @@
 export type Session = {
   token: string;
+  refreshToken: string;
+  tokenExpiresAt: number; // epoch ms
   storeId: string;
   storeName: string;
   storeAddress: string;
@@ -12,6 +14,8 @@ export type Child = {
   name?: string;
   birthDate?: string; // ISO format
   gender?: 'male' | 'female' | 'other';
+  height?: number; // cm
+  shoeSize?: number;
 };
 
 export type CustomerPreferences = {
@@ -34,6 +38,7 @@ export type Customer = {
   country?: string;
   children?: Child[];
   loyaltyEnrollment: boolean;
+  loyaltyDoubleOptIn: boolean;
   marketingConsent: boolean;
   privacyConsent: boolean;
   preferences?: CustomerPreferences;
@@ -42,13 +47,14 @@ export type Customer = {
   createdAt: string;
   totalPurchases?: number;
   totalSpent?: number;
-  rank?: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
+  rank?: 'Family' | 'Flower' | 'Fairytale' | 'Fashion';
 };
 
 export type Purchase = {
   id: string;
   customerId: string;
   customerName: string;
+  customerEmail?: string;
   date: string;
   amount: number;
   items: string[];
@@ -63,7 +69,7 @@ export type TopCustomer = {
   totalPurchases: number;
   totalSpent: number;
   lastPurchaseDate: string;
-  rank: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
+  rank: 'Family' | 'Flower' | 'Fairytale' | 'Fashion';
   salesAssociateName: string;
 };
 
@@ -75,6 +81,7 @@ export type Birthday = {
   age: number;
   customerName?: string; // For children, name of the parent
   customerId: string;
+  customerEmail?: string;
 };
 
 export type Stats = {
