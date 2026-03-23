@@ -77,8 +77,27 @@ export function Dashboard() {
 
   if (!stats) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <p className="text-red-500">Failed to load dashboard</p>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+            {session && (
+              <p className="text-sm text-gray-500 mt-1">{session.storeName}</p>
+            )}
+          </div>
+          <Link to="/customers/new">
+            <Button>+ New Customer</Button>
+          </Link>
+        </div>
+        <Card className="text-center py-12">
+          <p className="text-gray-400 mb-4">Dashboard data is not available yet.</p>
+          <Link to="/customers/new">
+            <Button>+ New Customer</Button>
+          </Link>
+          <p className="text-xs text-gray-300 mt-6">
+            Development only: <Link to="/uat" className="text-gray-400 underline hover:text-gray-600 transition-colors">UAT Testing Page</Link>
+          </p>
+        </Card>
       </div>
     );
   }
