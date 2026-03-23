@@ -129,6 +129,7 @@ const generateCustomers = (): Customer[] => {
       country: 'Italy',
       children,
       loyaltyEnrollment: true,
+      loyaltyDoubleOptIn: Math.random() > 0.5,
       marketingConsent: Math.random() > 0.3,
       privacyConsent: true,
       preferences,

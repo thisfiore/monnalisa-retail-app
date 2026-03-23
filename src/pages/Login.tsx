@@ -1,4 +1,5 @@
-import { useState, FormEvent } from 'react';
+import { useState } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { Input } from '../components/Input';
@@ -32,7 +33,7 @@ export function Login() {
     setEmail('storemanager1@monnalisa.com');
     setPassword('zW~]@sD4feIAN#I#36y@');
     setTimeout(() => {
-      document.getElementById('login-form')?.requestSubmit();
+      (document.getElementById('login-form') as HTMLFormElement | null)?.requestSubmit();
     }, 100);
   };
 

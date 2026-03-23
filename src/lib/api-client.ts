@@ -17,11 +17,12 @@ function getBaseUrl(): string {
   if (import.meta.env?.VITE_API_BASE_URL) {
     return import.meta.env.VITE_API_BASE_URL as string;
   }
-  // In dev mode, use /api prefix so Vite proxy forwards to the real backend
-  // without colliding with frontend routes like /customers/:email
-  if (import.meta.env?.DEV) {
+  // In browser, use /api prefix so requests are proxied (Vite dev server or Vercel rewrites)
+  // avoiding CORS and not colliding with frontend routes like /customers/:email
+  if (typeof window !== 'undefined') {
     return '/api';
   }
+  // Node.js (e.g. integration tests) — call backend directly
   return DEFAULT_BASE_URL;
 }
 

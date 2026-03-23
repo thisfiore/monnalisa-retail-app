@@ -1,4 +1,5 @@
-import { useState, FormEvent, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import type { FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { Input } from '../components/Input';
@@ -36,7 +37,7 @@ export function CustomerNew() {
   const [children, setChildren] = useState<Child[]>([]);
   const [loyaltyEnrollment, setLoyaltyEnrollment] = useState(true);
   const [marketingConsent, setMarketingConsent] = useState(false);
-  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [_privacyConsent, setPrivacyConsent] = useState(false);
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,14 +46,14 @@ export function CustomerNew() {
   const [submitSuccess, setSubmitSuccess] = useState(false);
 
   const [emailValidation, setEmailValidation] = useState<ValidationStatus>('idle');
-  const [emailMessage, setEmailMessage] = useState('');
+  const [, setEmailMessage] = useState('');
   const [existingEmailCustomer, setExistingEmailCustomer] = useState<ExistingCustomerInfo | null>(null);
-  const emailTimeoutRef = useRef<NodeJS.Timeout>();
+  const emailTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const [phoneValidation, setPhoneValidation] = useState<ValidationStatus>('idle');
-  const [phoneMessage, setPhoneMessage] = useState('');
+  const [, setPhoneMessage] = useState('');
   const [existingPhoneCustomer, setExistingPhoneCustomer] = useState<ExistingCustomerInfo | null>(null);
-  const phoneTimeoutRef = useRef<NodeJS.Timeout>();
+  const phoneTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // Email validation effect
   useEffect(() => {

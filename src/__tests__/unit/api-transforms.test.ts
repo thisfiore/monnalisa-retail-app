@@ -81,9 +81,9 @@ describe('mapGender', () => {
 // ---------------------------------------------------------------------------
 describe('childrenToFigli', () => {
   it('converts array of children to figlio slots', () => {
-    const children: (Child & { height?: string; shoeSize?: string })[] = [
-      { name: 'Mario', birthDate: '2015-06-15', gender: 'male', height: '120', shoeSize: '30' },
-      { name: 'Luisa', birthDate: '2018-09-20', gender: 'female', height: '110', shoeSize: '28' },
+    const children: Child[] = [
+      { name: 'Mario', birthDate: '2015-06-15', gender: 'male', height: 120, shoeSize: 30 },
+      { name: 'Luisa', birthDate: '2018-09-20', gender: 'female', height: 110, shoeSize: 28 },
     ];
 
     const result = childrenToFigli(children);
@@ -92,15 +92,15 @@ describe('childrenToFigli', () => {
       nome__c: 'Mario',
       data_di_nascita__c: '2015-06-15',
       sesso__c: 'Male',
-      altezza__c: '120',
-      numero_calzature__c: '30',
+      altezza__c: 120,
+      numero_calzature__c: 30,
     });
     expect(result.figlio2).toEqual({
       nome__c: 'Luisa',
       data_di_nascita__c: '2018-09-20',
       sesso__c: 'Female',
-      altezza__c: '110',
-      numero_calzature__c: '28',
+      altezza__c: 110,
+      numero_calzature__c: 28,
     });
     expect(result.figlio3).toBeNull();
     expect(result.figlio4).toBeNull();
@@ -115,12 +115,12 @@ describe('childrenToFigli', () => {
   });
 
   it('caps at 4 children even if more provided', () => {
-    const children: (Child & { height?: string; shoeSize?: string })[] = [
-      { name: 'A', birthDate: '2020-01-01', gender: 'male', height: '100', shoeSize: '26' },
-      { name: 'B', birthDate: '2020-01-01', gender: 'female', height: '100', shoeSize: '26' },
-      { name: 'C', birthDate: '2020-01-01', gender: 'male', height: '100', shoeSize: '26' },
-      { name: 'D', birthDate: '2020-01-01', gender: 'female', height: '100', shoeSize: '26' },
-      { name: 'E', birthDate: '2020-01-01', gender: 'male', height: '100', shoeSize: '26' },
+    const children: Child[] = [
+      { name: 'A', birthDate: '2020-01-01', gender: 'male', height: 100, shoeSize: 26 },
+      { name: 'B', birthDate: '2020-01-01', gender: 'female', height: 100, shoeSize: 26 },
+      { name: 'C', birthDate: '2020-01-01', gender: 'male', height: 100, shoeSize: 26 },
+      { name: 'D', birthDate: '2020-01-01', gender: 'female', height: 100, shoeSize: 26 },
+      { name: 'E', birthDate: '2020-01-01', gender: 'male', height: 100, shoeSize: 26 },
     ];
 
     const result = childrenToFigli(children);
@@ -140,13 +140,13 @@ describe('childrenToFigli', () => {
     expect(result.figlio1).toBeNull();
   });
 
-  it('defaults height and shoeSize to empty string when not provided', () => {
+  it('defaults height and shoeSize to 0 when not provided', () => {
     const children: Child[] = [
       { name: 'Mario', birthDate: '2015-06-15', gender: 'male' },
     ];
     const result = childrenToFigli(children);
-    expect(result.figlio1?.altezza__c).toBe('');
-    expect(result.figlio1?.numero_calzature__c).toBe('');
+    expect(result.figlio1?.altezza__c).toBe(0);
+    expect(result.figlio1?.numero_calzature__c).toBe(0);
   });
 });
 
@@ -227,10 +227,10 @@ describe('toUpdateRequest', () => {
   });
 
   it('includes children as figlio slots', () => {
-    const children: (Child & { height?: string; shoeSize?: string })[] = [
-      { name: 'Sofia', birthDate: '2018-07-22', gender: 'female', height: '110', shoeSize: '28' },
+    const children: Child[] = [
+      { name: 'Sofia', birthDate: '2018-07-22', gender: 'female', height: 110, shoeSize: 28 },
     ];
-    const req = toUpdateRequest({ children } as Partial<Customer>);
+    const req = toUpdateRequest({ children });
     expect(req.figlio1?.nome__c).toBe('Sofia');
     expect(req.figlio2).toBeNull();
     expect(req.figlio3).toBeNull();
@@ -316,7 +316,7 @@ describe('fromGetResponse', () => {
     expect(customer.dateOfBirth).toBe('1990-05-15');
     expect(customer.marketingConsent).toBe(true);
     expect(customer.loyaltyEnrollment).toBe(true);
-    expect(customer.rank).toBe('Silver');
+    expect(customer.rank).toBe('Flower');
   });
 
   it('handles null/missing fields gracefully', () => {
@@ -337,7 +337,7 @@ describe('fromGetResponse', () => {
 
   it('maps tier case-insensitively', () => {
     const response: PersonAccountGetResponse = { LoyaltyTier__c: 'gold' };
-    expect(fromGetResponse(response).rank).toBe('Gold');
+    expect(fromGetResponse(response).rank).toBe('Fairytale');
   });
 
   it('returns undefined rank for unknown tier', () => {

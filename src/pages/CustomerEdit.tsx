@@ -1,4 +1,5 @@
-import { useState, FormEvent, useEffect } from 'react';
+import { useState, useEffect } from 'react';
+import type { FormEvent } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { Input } from '../components/Input';
@@ -29,7 +30,7 @@ export function CustomerEdit() {
   const [children, setChildren] = useState<Child[]>([]);
   const [loyaltyEnrollment, setLoyaltyEnrollment] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
-  const [privacyConsent, setPrivacyConsent] = useState(false);
+  const [_privacyConsent, setPrivacyConsent] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
