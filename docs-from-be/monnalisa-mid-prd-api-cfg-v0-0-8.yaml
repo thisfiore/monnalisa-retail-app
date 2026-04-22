@@ -1,0 +1,1293 @@
+openapi: 3.0.4
+info:
+  title: Loyalty middleware API
+  description: Monnalisa Loyalty API for Salesforce Service Cloud integration
+  version: dev
+paths:
+  /customers/checkEmailExists:
+    get:
+      tags:
+      - Salesforce CRM
+      summary: Check User Exists
+      description: 'Check if a customer exists in Salesforce by email.
+
+
+        - **email**: Customer email address (EmailKey__c external ID field)
+
+
+        Returns JSON with exists field (true/false).'
+      operationId: check_user_exists_customers_checkEmailExists_get
+      parameters:
+      - name: email
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Customer email to check
+          format: email
+          title: Email
+        description: Customer email to check
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExistsResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/checkPhoneExists:
+    get:
+      tags:
+      - Salesforce CRM
+      summary: Check Phone Exists
+      description: 'Check if a customer exists in Salesforce by phone number.
+
+
+        - **phone**: Customer phone number
+
+
+        Returns JSON with exists field (true/false).'
+      operationId: check_phone_exists_customers_checkPhoneExists_get
+      parameters:
+      - name: phone
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Customer phone number to check (e.g. +393331231231 or 3331234567)
+          title: Phone
+        description: Customer phone number to check (e.g. +393331231231 or 3331234567)
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExistsResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/getAccount:
+    get:
+      tags:
+      - Salesforce CRM
+      summary: Get Customer
+      description: 'Fetch customer Account data from Salesforce by email.
+
+
+        - **email**: Customer email address (EmailKey__c external ID field)
+
+        - **fields**: Optional comma-separated list of fields to retrieve
+
+
+        Returns Account record data from Salesforce.'
+      operationId: get_customer_customers_getAccount_get
+      parameters:
+      - name: email
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Customer email (external ID)
+          format: email
+          title: Email
+        description: Customer email (external ID)
+      - name: fields
+        in: query
+        required: false
+        schema:
+          type: string
+          description: Comma-separated list of Salesforce fields to retrieve
+          default: Id,EmailKey__c,Customer_id__c,Customer_no__c,Type__c,RetailProcustomerId__c,MarketingConsent__c,PersonBirthdate,FirstName,LastName,Gender__c,Phone,LoyaltyConsent__c,LoyaltyConsentDate__c,LoyaltyTier__c,TotalQualifyingPoints__c,LoyaltyDoubleOptIn__c,nome_figlio1__c,sesso_figlio1__c,data_di_nascita_figlio1__c,altezza_figlio1__c,numero_calzature_figlio1__c,nome_figlio2__c,sesso_figlio2__c,data_di_nascita_figlio2__c,altezza_figlio2__c,numero_calzature_figlio2__c,nome_figlio3__c,sesso_figlio3__c,data_di_nascita_figlio3__c,altezza_figlio3__c,numero_calzature_figlio3__c,nome_figlio4__c,sesso_figlio4__c,data_di_nascita_figlio4__c,altezza_figlio4__c,numero_calzature_figlio4__c,ShippingStreet,ShippingPostalCode,ShippingCity,ShippingState,ShippingCountry,Region__c,Country_id__c,Home_SBS_NO__c,Store_Number__c
+          title: Fields
+        description: Comma-separated list of Salesforce fields to retrieve
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PersonAccountGetResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/createAccount:
+    post:
+      tags:
+      - Salesforce CRM
+      summary: Create Customer
+      description: 'Create a new customer Account in Salesforce.
+
+
+        - **create_customer_request**: Request body containing customer details
+
+
+        Returns the created Account ID and success status.'
+      operationId: create_customer_customers_createAccount_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonAccountCreateRequest'
+        required: true
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountWriteResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/updateAccount:
+    patch:
+      tags:
+      - Salesforce CRM
+      summary: Update Customer
+      description: 'Update an existing customer Account in Salesforce.
+
+
+        - **update_customer_request**: Request body containing customer details to
+        update
+
+
+        Returns the updated Account ID and success status.'
+      operationId: update_customer_customers_updateAccount_patch
+      parameters:
+      - name: email
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Customer email (external ID)
+          format: email
+          title: Email
+        description: Customer email (external ID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PersonAccountUpdateRequest'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccountWriteResponse'
+        '404':
+          description: Account not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/search:
+    get:
+      tags:
+      - Salesforce CRM
+      summary: Search Customers
+      description: 'Search for customer Person Accounts in Salesforce.
+
+
+        Uses Salesforce parameterizedSearch API.
+
+
+        - **q**: Search string (e.g. "John")
+
+        - **limit**: Maximum number of records to return (default: 10, min: 1, max:
+        50)
+
+
+        Returns a list of matching Account records.'
+      operationId: search_customers_customers_search_get
+      parameters:
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Search string to match against name, email, phone
+          title: Q
+        description: Search string to match against name, email, phone
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 50
+          minimum: 1
+          description: 'Maximum number of results to retrieve (default: 10, max: 50)'
+          default: 10
+          title: Limit
+        description: 'Maximum number of results to retrieve (default: 10, max: 50)'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PersonAccountSearchRecord'
+                title: Response Search Customers Customers Search Get
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/getLoyaltyLedger:
+    get:
+      tags:
+      - Salesforce CRM
+      summary: Get User Ledger
+      description: 'Fetch loyalty point ledger entries for a customer from Salesforce.
+
+
+        - **email**: Customer email address (Account EmailKey__c external ID field)
+
+        - **limit**: Maximum number of records to retrieve (default: 10, max: 1000)
+
+
+        Returns list of LoyaltyPointLedger__c records ordered by OperationDate__c
+        DESC.'
+      operationId: get_user_ledger_customers_getLoyaltyLedger_get
+      parameters:
+      - name: email
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Customer email (external ID)
+          format: email
+          title: Email
+        description: Customer email (external ID)
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          maximum: 1000
+          minimum: 1
+          description: 'Maximum number of ledger entries to retrieve (default: 10,
+            max: 1000)'
+          default: 10
+          title: Limit
+        description: 'Maximum number of ledger entries to retrieve (default: 10, max:
+          1000)'
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoyaltyPointLedgerResponse'
+        '404':
+          description: No ledger entries found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/created-this-week:
+    get:
+      tags:
+      - Salesforce CRM
+      summary: Get Customers Created This Week
+      description: 'Fetch customers created in a specific store this week.
+
+
+        - **store_id**: Salesforce Store__c record ID
+
+
+        Returns a list of Account records ordered by creation date DESC.'
+      operationId: get_customers_created_this_week_customers_created_this_week_get
+      parameters:
+      - name: store_id
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Salesforce Store ID
+          title: Store Id
+        description: Salesforce Store ID
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerSegmentRecord'
+                title: Response Get Customers Created This Week Customers Created
+                  This Week Get
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /customers/created-last-week:
+    get:
+      tags:
+      - Salesforce CRM
+      summary: Get Customers Created Last Week
+      description: 'Fetch customers created in a specific store last week.
+
+
+        - **store_id**: Salesforce Store__c record ID
+
+
+        Returns a list of Account records ordered by creation date DESC.'
+      operationId: get_customers_created_last_week_customers_created_last_week_get
+      parameters:
+      - name: store_id
+        in: query
+        required: true
+        schema:
+          type: string
+          description: Salesforce Store ID
+          title: Store Id
+        description: Salesforce Store ID
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CustomerSegmentRecord'
+                title: Response Get Customers Created Last Week Customers Created
+                  Last Week Get
+        '404':
+          description: Store not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+  /stores/getStores:
+    get:
+      tags:
+      - Stores
+      summary: Get Stores
+      description: 'Fetch all stores from Salesforce filtered by country.
+
+
+        - **country**: Country name (e.g. Italy). If omitted, returns all stores.
+
+
+        Returns Id, Name, Country__c, Store_No__c, Sbs__c for each matching store.'
+      operationId: get_stores_stores_getStores_get
+      parameters:
+      - name: country
+        in: query
+        required: false
+        schema:
+          description: Country name to filter stores (e.g. Italy). If omitted, returns
+            all stores.
+          title: Country
+          type: string
+          nullable: true
+        description: Country name to filter stores (e.g. Italy). If omitted, returns
+          all stores.
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/StoreRecord'
+                title: Response Get Stores Stores Getstores Get
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SalesforceErrorResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+      security:
+      - firebase: []
+components:
+  schemas:
+    AccountWriteResponse:
+      properties:
+        id:
+          type: string
+          title: Id
+          description: ID of the created Salesforce Account
+        success:
+          type: boolean
+          title: Success
+          description: Indicates if the creation was successful
+        errors:
+          items: {}
+          type: array
+          title: Errors
+          description: List of errors, if any
+      type: object
+      required:
+      - id
+      - success
+      - errors
+      title: AccountWriteResponse
+      description: Response model for Salesforce Account create and update operations
+      example:
+        errors: []
+        id: 001MB00000OOMCtYAP
+        success: true
+    ChildInfo:
+      properties:
+        nome__c:
+          type: string
+          title: Nome  C
+          description: Child name
+        data_di_nascita__c:
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}
+          title: Data Di Nascita  C
+          description: Child birthdate
+        sesso__c:
+          allOf:
+          - $ref: '#/components/schemas/Gender'
+          description: Child gender (Male or Female)
+        altezza__c:
+          type: number
+          title: Altezza  C
+          description: Child height in cm
+        numero_calzature__c:
+          type: number
+          title: Numero Calzature  C
+          description: Child shoe size
+      type: object
+      required:
+      - nome__c
+      - data_di_nascita__c
+      - sesso__c
+      - altezza__c
+      - numero_calzature__c
+      title: ChildInfo
+      description: Model for child information
+      example:
+        altezza__c: 120
+        data_di_nascita__c: '2015-06-15'
+        nome__c: Mario
+        numero_calzature__c: 30
+        sesso__c: Male
+    CustomerSegmentRecord:
+      properties:
+        EmailKey__c:
+          title: Emailkey  C
+          description: Customer email
+          type: string
+          nullable: true
+        CreatedDate:
+          title: Createddate
+          description: Account creation date
+          type: string
+          nullable: true
+        FirstName:
+          title: Firstname
+          description: Customer first name
+          type: string
+          nullable: true
+        LastName:
+          title: Lastname
+          description: Customer last name
+          type: string
+          nullable: true
+        LoyaltyConsent__c:
+          title: Loyaltyconsent  C
+          description: Loyalty program consent flag
+          type: boolean
+          nullable: true
+        LoyaltyTier__c:
+          title: Loyaltytier  C
+          description: Current loyalty tier
+          type: string
+          nullable: true
+        MarketingConsent__c:
+          title: Marketingconsent  C
+          description: Marketing consent flag
+          type: boolean
+          nullable: true
+      type: object
+      title: CustomerSegmentRecord
+      description: Customer record returned by store segment queries (created this/last
+        week)
+      example:
+        CreatedDate: '2026-03-24T10:00:00.000Z'
+        EmailKey__c: mariorossi@gmail.com
+        FirstName: Mario
+        LastName: Rossi
+        LoyaltyConsent__c: true
+        LoyaltyTier__c: Family
+        MarketingConsent__c: false
+    ExistsResponse:
+      properties:
+        exists:
+          type: boolean
+          title: Exists
+          description: Whether the user exists in Salesforce
+      type: object
+      required:
+      - exists
+      title: ExistsResponse
+      description: Generic existence check response
+      example:
+        exists: true
+    Gender:
+      type: string
+      enum:
+      - Male
+      - Female
+      title: Gender
+      description: Gender enumeration
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          type: array
+          title: Detail
+      type: object
+      title: HTTPValidationError
+    LoyaltyPointLedgerEntry:
+      properties:
+        AppliedRules__c:
+          title: Appliedrules  C
+          description: Applied rules
+          type: string
+          nullable: true
+        Points__c:
+          title: Points  C
+          description: Points amount
+          type: number
+          nullable: true
+        OperationDate__c:
+          title: Operationdate  C
+          description: Operation date
+          type: string
+          nullable: true
+        Status__c:
+          title: Status  C
+          description: Entry status
+          type: string
+          nullable: true
+        TransactionNumber__c:
+          title: Transactionnumber  C
+          description: Transaction number
+          type: string
+          nullable: true
+      type: object
+      title: LoyaltyPointLedgerEntry
+      description: Model for a single Loyalty Point Ledger entry
+    LoyaltyPointLedgerResponse:
+      properties:
+        totalSize:
+          type: integer
+          title: Totalsize
+          description: Total number of records
+        records:
+          items:
+            $ref: '#/components/schemas/LoyaltyPointLedgerEntry'
+          type: array
+          title: Records
+          description: List of ledger entries
+      type: object
+      required:
+      - totalSize
+      - records
+      title: LoyaltyPointLedgerResponse
+      description: Response model for user loyalty point ledger
+      example:
+        records:
+        - AppliedRules__c: LookCapsule
+          OperationDate__c: 2025-12-20T11:00:00.000+0000
+          Points__c: 400.0
+          Status__c: Confirmed
+          TransactionNumber__c: Retail Order
+        totalSize: 3
+    PersonAccountCreateRequest:
+      properties:
+        FirstName:
+          type: string
+          title: Firstname
+          description: Customer first name
+        LastName:
+          type: string
+          title: Lastname
+          description: Customer last name
+        PersonEmail:
+          type: string
+          format: email
+          title: Personemail
+          description: Customer email
+        Phone:
+          type: string
+          pattern: ^\+[1-9]\d{1,14}$
+          title: Phone
+          description: Customer phone number
+        PersonBirthdate:
+          title: Personbirthdate
+          description: Customer birthdate
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$
+          nullable: true
+        marketingConsent__c:
+          type: boolean
+          title: Marketingconsent  C
+          description: Marketing consent flag
+        LoyaltyRequest__c:
+          type: boolean
+          title: Loyaltyrequest  C
+          description: Loyalty program subscription request flag
+        Preferred_Locale__c:
+          type: string
+          pattern: ^[a-z]{2}_[A-Z]{2}$
+          title: Preferred Locale  C
+          description: Preferred locale (e.g., it_IT)
+        Gender__c:
+          allOf:
+          - $ref: '#/components/schemas/Gender'
+          description: Customer gender (Male or Female)
+          nullable: true
+        figlio1:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 1
+          nullable: true
+        figlio2:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 2
+          nullable: true
+        figlio3:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 3
+          nullable: true
+        figlio4:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 4
+          nullable: true
+        store_id:
+          title: Store Id
+          description: Preferred store Salesforce ID
+          type: string
+          nullable: true
+      type: object
+      required:
+      - FirstName
+      - LastName
+      - PersonEmail
+      - Phone
+      - marketingConsent__c
+      - LoyaltyRequest__c
+      - Preferred_Locale__c
+      title: PersonAccountCreateRequest
+      description: Request model for creating a Salesforce Account
+      example:
+        FirstName: John
+        Gender__c: Male
+        LastName: Doe
+        LoyaltyRequest__c: true
+        PersonBirthdate: '2000-12-12T00:00:00.000Z'
+        PersonEmail: john.doe@example.com
+        Phone: '+393331231231'
+        Preferred_Locale__c: it_IT
+        figlio1:
+          altezza__c: 120
+          data_di_nascita__c: '2015-06-15'
+          nome__c: Mario
+          numero_calzature__c: 30
+          sesso__c: Male
+        marketingConsent__c: true
+        store_id: a0W0E000004p9WdUAI
+    PersonAccountGetResponse:
+      properties:
+        Id:
+          title: Id
+          description: Account ID
+          type: string
+          nullable: true
+        FirstName:
+          title: Firstname
+          description: Customer first name
+          type: string
+          nullable: true
+        LastName:
+          title: Lastname
+          description: Customer last name
+          type: string
+          nullable: true
+        EmailKey__c:
+          title: Emailkey  C
+          description: Customer email
+          type: string
+          nullable: true
+        Customer_no__c:
+          title: Customer No  C
+          description: Customer number
+          type: string
+          nullable: true
+        Phone:
+          title: Phone
+          description: Customer phone number
+          type: string
+          nullable: true
+        PersonBirthdate:
+          title: Personbirthdate
+          description: Customer birthdate
+          type: string
+          nullable: true
+        Gender__c:
+          allOf:
+          - $ref: '#/components/schemas/Gender'
+          description: Customer gender (Male or Female)
+          nullable: true
+        MarketingConsent__c:
+          title: Marketingconsent  C
+          description: Marketing consent flag
+          type: boolean
+          nullable: true
+        LoyaltyConsent__c:
+          title: Loyaltyconsent  C
+          description: Loyalty program consent flag
+          type: boolean
+          nullable: true
+        LoyaltyConsentDate__c:
+          title: Loyaltyconsentdate  C
+          description: Loyalty consent date
+          type: string
+          nullable: true
+        LoyaltyTier__c:
+          title: Loyaltytier  C
+          description: Current loyalty tier
+          type: string
+          nullable: true
+        TotalQualifyingPoints__c:
+          title: Totalqualifyingpoints  C
+          description: Total qualifying loyalty points
+          type: number
+          nullable: true
+        LoyaltyDoubleOptIn__c:
+          title: Loyaltydoubleoptin  C
+          description: Loyalty double opt-in flag
+          type: boolean
+          nullable: true
+        figlio1:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 1
+          nullable: true
+        figlio2:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 2
+          nullable: true
+        figlio3:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 3
+          nullable: true
+        figlio4:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 4
+          nullable: true
+        ShippingStreet:
+          title: Shippingstreet
+          description: Shipping street
+          type: string
+          nullable: true
+        ShippingPostalCode:
+          title: Shippingpostalcode
+          description: Shipping postal code
+          type: string
+          nullable: true
+        ShippingCity:
+          title: Shippingcity
+          description: Shipping city
+          type: string
+          nullable: true
+        ShippingState:
+          title: Shippingstate
+          description: Shipping state
+          type: string
+          nullable: true
+        ShippingCountry:
+          title: Shippingcountry
+          description: Shipping country
+          type: string
+          nullable: true
+        Region__c:
+          title: Region  C
+          description: Region
+          type: string
+          nullable: true
+        Country_id__c:
+          title: Country Id  C
+          description: Country ID
+          type: string
+          nullable: true
+        store:
+          allOf:
+          - $ref: '#/components/schemas/PreferredStoreInfo'
+          description: Preferred store info
+          nullable: true
+      type: object
+      title: PersonAccountGetResponse
+      description: Salesforce Account object model - uses Salesforce field names
+      example:
+        Customer_no__c: '96800001'
+        EmailKey__c: mariorossi@gmail.com
+        FirstName: john
+        Id: 0010E000013ZYaOQAW
+        LastName: doe
+        LoyaltyConsent__c: false
+        LoyaltyDoubleOptIn__c: false
+        MarketingConsent__c: false
+        PersonBirthdate: '2001-01-01'
+        Phone: '+393331231231'
+        figlio1:
+          altezza__c: 120
+          data_di_nascita__c: '2015-06-15'
+          nome__c: Mario
+          numero_calzature__c: 30
+          sesso__c: Male
+        figlio2:
+          altezza__c: 110
+          data_di_nascita__c: '2018-09-20'
+          nome__c: Luisa
+          numero_calzature__c: 28
+          sesso__c: Female
+        figlio3:
+          altezza__c: 100
+          data_di_nascita__c: '2020-03-10'
+          nome__c: Andrea
+          numero_calzature__c: 26
+          sesso__c: Male
+        figlio4:
+          altezza__c: 85
+          data_di_nascita__c: '2022-07-05'
+          nome__c: Sofia
+          numero_calzature__c: 20
+          sesso__c: Female
+        store:
+          Country__c: Italy
+          Home_SBS_NO__c: '1'
+          Id: a0W0E000004p9WdUAI
+          Name: Arezzo
+          Store_Number__c: '1'
+    PersonAccountSearchRecord:
+      properties:
+        Name:
+          title: Name
+          description: Account full name
+          type: string
+          nullable: true
+        EmailKey__c:
+          title: Emailkey  C
+          description: Customer email key
+          type: string
+          nullable: true
+        Phone:
+          title: Phone
+          description: Customer phone number
+          type: string
+          nullable: true
+      type: object
+      title: PersonAccountSearchRecord
+      description: Model for a single Person Account search result
+      example:
+        EmailKey__c: mariorossi@gmail.com
+        Name: Mario Rossi
+        Phone: '3333333333'
+    PersonAccountUpdateRequest:
+      properties:
+        FirstName:
+          title: Firstname
+          description: Customer first name
+          type: string
+          nullable: true
+        LastName:
+          title: Lastname
+          description: Customer last name
+          type: string
+          nullable: true
+        Phone:
+          title: Phone
+          description: Customer phone number
+          type: string
+          pattern: ^\+[1-9]\d{1,14}$
+          nullable: true
+        PersonBirthdate:
+          title: Personbirthdate
+          description: Customer birthdate
+          type: string
+          pattern: ^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z$
+          nullable: true
+        marketingConsent__c:
+          title: Marketingconsent  C
+          description: Marketing consent flag
+          type: boolean
+          nullable: true
+        LoyaltyRequest__c:
+          title: Loyaltyrequest  C
+          description: Loyalty program subscription request flag
+          type: boolean
+          nullable: true
+        Preferred_Locale__c:
+          title: Preferred Locale  C
+          description: Preferred locale (e.g., it_IT)
+          type: string
+          pattern: ^[a-z]{2}_[A-Z]{2}$
+          nullable: true
+        Gender__c:
+          allOf:
+          - $ref: '#/components/schemas/Gender'
+          description: Customer gender (Male or Female)
+          nullable: true
+        figlio1:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 1
+          nullable: true
+        figlio2:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 2
+          nullable: true
+        figlio3:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 3
+          nullable: true
+        figlio4:
+          allOf:
+          - $ref: '#/components/schemas/ChildInfo'
+          description: Information for child 4
+          nullable: true
+        ShippingStreet:
+          title: Shippingstreet
+          description: Shipping street
+          type: string
+          nullable: true
+        ShippingPostalCode:
+          title: Shippingpostalcode
+          description: Shipping postal code
+          type: string
+          nullable: true
+        ShippingCity:
+          title: Shippingcity
+          description: Shipping city
+          type: string
+          nullable: true
+        ShippingState:
+          title: Shippingstate
+          description: Shipping state
+          type: string
+          nullable: true
+        ShippingCountry:
+          title: Shippingcountry
+          description: Shipping country
+          type: string
+          nullable: true
+        Region__c:
+          title: Region  C
+          description: Region
+          type: string
+          nullable: true
+        Country_id__c:
+          title: Country Id  C
+          description: Country ID
+          type: string
+          nullable: true
+        store_id:
+          title: Store Id
+          description: Preferred store Salesforce ID
+          type: string
+          nullable: true
+      type: object
+      title: PersonAccountUpdateRequest
+      description: Request model for updating a Salesforce Account
+      example:
+        FirstName: John
+        Gender__c: Male
+        LastName: Doe
+        LoyaltyRequest__c: true
+        PersonBirthdate: '2000-12-12T00:00:00.000Z'
+        Phone: '+393331231231'
+        Preferred_Locale__c: it_IT
+        figlio1:
+          altezza__c: 120
+          data_di_nascita__c: '2015-06-15'
+          nome__c: Mario
+          numero_calzature__c: 30
+          sesso__c: Male
+        figlio2:
+          altezza__c: 110
+          data_di_nascita__c: '2018-09-20'
+          nome__c: Luisa
+          numero_calzature__c: 28
+          sesso__c: Female
+        figlio3:
+          altezza__c: 100
+          data_di_nascita__c: '2020-03-10'
+          nome__c: Andrea
+          numero_calzature__c: 26
+          sesso__c: Male
+        figlio4:
+          altezza__c: 85
+          data_di_nascita__c: '2022-07-05'
+          nome__c: Sofia
+          numero_calzature__c: 20
+          sesso__c: Female
+        marketingConsent__c: true
+        store_id: a0W0E000004p9WdUAI
+    PreferredStoreInfo:
+      properties:
+        Id:
+          title: Id
+          description: Store Salesforce ID
+          type: string
+          nullable: true
+        Name:
+          title: Name
+          description: Store name
+          type: string
+          nullable: true
+        Country__c:
+          title: Country  C
+          description: Store country
+          type: string
+          nullable: true
+        Home_SBS_NO__c:
+          title: Home Sbs No  C
+          description: Store SBS number
+          type: string
+          nullable: true
+        Store_Number__c:
+          title: Store Number  C
+          description: Store number
+          type: string
+          nullable: true
+      type: object
+      title: PreferredStoreInfo
+      description: Preferred store information joined from Store__c
+    SalesforceErrorResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+          description: Error status
+          default: error
+        message:
+          type: string
+          title: Message
+          description: Error message
+      type: object
+      required:
+      - message
+      title: SalesforceErrorResponse
+      description: Salesforce error response model
+      example:
+        message: 'Account not found with email: invalid@example.com'
+        status: error
+    StoreRecord:
+      properties:
+        Id:
+          type: string
+          title: Id
+        Name:
+          type: string
+          title: Name
+        Country__c:
+          title: Country  C
+          description: Store country
+          type: string
+          nullable: true
+        Store_No__c:
+          title: Store No  C
+          description: Store number
+          type: string
+          nullable: true
+        Sbs__c:
+          title: Sbs  C
+          description: SBS code
+          type: string
+          nullable: true
+      type: object
+      required:
+      - Id
+      - Name
+      title: StoreRecord
+      description: Salesforce Store__c object
+    ValidationError:
+      properties:
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          type: array
+          title: Location
+        msg:
+          type: string
+          title: Message
+        type:
+          type: string
+          title: Error Type
+      type: object
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+  securitySchemes:
+    firebase:
+      type: oauth2
+      flows:
+        implicit:
+          authorizationUrl: ''
+          scopes: {}
+      x-google-auth:
+        issuer: https://securetoken.google.com/loyalty-be
+        jwksUri: https://www.googleapis.com/service_accounts/v1/metadata/x509/securetoken@system.gserviceaccount.com
+        audiences:
+        - loyalty-be
+x-google-api-management:
+  backends:
+    cloudrun_backend:
+      address: https://monnalisa-mid-prd-fastapi-crun-pbfsppqysq-ew.a.run.app
+      deadline: 30.0
+      pathTranslation: APPEND_PATH_TO_ADDRESS
+      protocol: http/1.1
+x-google-backend: cloudrun_backend

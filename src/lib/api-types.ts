@@ -1,5 +1,5 @@
 /**
- * TypeScript types matching the Monnalisa Loyalty BFF OpenAPI v0.0.6 spec.
+ * TypeScript types matching the Monnalisa Loyalty BFF OpenAPI v0.0.8 spec.
  * These represent the exact JSON shapes sent to / received from the backend.
  */
 
@@ -28,6 +28,7 @@ export type PersonAccountCreateRequest = {
   figlio2?: ChildInfo | null;
   figlio3?: ChildInfo | null;
   figlio4?: ChildInfo | null;
+  store_id?: string | null; // Preferred store Salesforce ID
 };
 
 // PATCH /customers/updateAccount?email=
@@ -51,6 +52,7 @@ export type PersonAccountUpdateRequest = {
   ShippingCountry?: string | null;
   Region__c?: string | null;
   Country_id__c?: string | null;
+  store_id?: string | null; // Preferred store Salesforce ID
 };
 
 // GET /customers/getAccount?email=
@@ -83,6 +85,16 @@ export type PersonAccountGetResponse = {
   ShippingCountry?: string | null;
   Region__c?: string | null;
   Country_id__c?: string | null;
+  store?: PreferredStoreInfo | null;
+};
+
+// Nested on PersonAccountGetResponse.store — joined from Store__c
+export type PreferredStoreInfo = {
+  Id?: string | null;
+  Name?: string | null;
+  Country__c?: string | null;
+  Home_SBS_NO__c?: string | null;
+  Store_Number__c?: string | null;
 };
 
 // GET /customers/checkEmailExists?email=  &  GET /customers/checkPhoneExists?phone=
@@ -131,4 +143,24 @@ export type PersonAccountSearchRecord = {
   Name: string | null;
   EmailKey__c: string | null;
   Phone: string | null;
+};
+
+// GET /stores/getStores?country=
+export type StoreRecord = {
+  Id: string;
+  Name: string;
+  Country__c?: string | null;
+  Store_No__c?: string | null;
+  Sbs__c?: string | null;
+};
+
+// GET /customers/created-this-week?store_id=  &  /customers/created-last-week?store_id=
+export type CustomerSegmentRecord = {
+  EmailKey__c: string | null;
+  CreatedDate: string | null;
+  FirstName: string | null;
+  LastName: string | null;
+  LoyaltyConsent__c: boolean | null;
+  LoyaltyTier__c: string | null;
+  MarketingConsent__c: boolean | null;
 };

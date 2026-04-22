@@ -46,8 +46,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       refreshToken: firebaseResult.refreshToken,
       tokenExpiresAt: Date.now() + Number(firebaseResult.expiresIn) * 1000,
       email: firebaseResult.email,
-      // Hardcoded store info until a store config API exists
-      storeId: 'ML-Milano-001',
+      // Hardcoded store info until a store-picker UX exists.
+      // storeId is the Salesforce Store__c record ID used by BFF segment endpoints.
+      storeId: 'a0W0E000004p9WeUAI',
       storeName: 'Milano Boutique',
       storeAddress: 'Via della Spiga',
       salesAssociateId: 'SA-8473',

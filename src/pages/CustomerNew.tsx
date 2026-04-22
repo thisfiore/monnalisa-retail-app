@@ -159,6 +159,7 @@ export function CustomerNew() {
       const token = await getValidToken();
       const customerData = { firstName, lastName, email, phone: phone ? `${phoneCountry} ${phone}` : undefined, dateOfBirth: dateOfBirth || undefined, loyaltyEnrollment, marketingConsent, privacyConsent: true, children: children.length > 0 ? children : undefined };
       const createRequest = toCreateRequest(customerData);
+      if (session?.storeId) createRequest.store_id = session.storeId;
       await customerApi.createAccount(createRequest, token);
       if (address || city || postalCode || country !== 'Italy') {
         const addressUpdate = toUpdateRequest({ address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined });

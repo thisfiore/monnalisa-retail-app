@@ -1,4 +1,5 @@
 import type {
+  CustomerSegmentRecord,
   LoyaltyPointLedgerResponse,
   PersonAccountCreateRequest,
   PersonAccountExistsResponse,
@@ -7,6 +8,7 @@ import type {
   PersonAccountSearchRecord,
   PersonAccountUpdateRequest,
   SalesforceErrorResponse,
+  StoreRecord,
 } from './api-types.ts';
 
 const DEFAULT_BASE_URL =
@@ -151,5 +153,32 @@ export const customerApi = {
     const params = new URLSearchParams({ q: query });
     if (limit !== undefined) params.set('limit', String(limit));
     return request(`/customers/search?${params.toString()}`, token);
+  },
+
+  getCustomersCreatedThisWeek(
+    storeId: string,
+    token: string,
+  ): Promise<CustomerSegmentRecord[]> {
+    return request(
+      `/customers/created-this-week?store_id=${encodeURIComponent(storeId)}`,
+      token,
+    );
+  },
+
+  getCustomersCreatedLastWeek(
+    storeId: string,
+    token: string,
+  ): Promise<CustomerSegmentRecord[]> {
+    return request(
+      `/customers/created-last-week?store_id=${encodeURIComponent(storeId)}`,
+      token,
+    );
+  },
+};
+
+export const storeApi = {
+  getStores(country: string | undefined, token: string): Promise<StoreRecord[]> {
+    const qs = country ? `?country=${encodeURIComponent(country)}` : '';
+    return request(`/stores/getStores${qs}`, token);
   },
 };

@@ -92,6 +92,21 @@ const uatCases: UATCase[] = [
     dataSource: 'frontend-only',
     dataSourceNote: 'React Router guard checks session in memory, no API call',
   },
+  {
+    id: 'AUTH-06',
+    area: 'Authentication',
+    title: 'Session is tagged with a hardcoded Salesforce Store ID',
+    preconditions: 'User just logged in (fresh session)',
+    steps: [
+      'Open DevTools → Application → Local Storage → session',
+      'Inspect the "storeId" field',
+    ],
+    expectedResult:
+      'storeId equals "a0W0E000004p9WeUAI" — the hardcoded Salesforce Store__c record Id used by the segment endpoints. No user→store lookup exists yet; see API Gaps below.',
+    priority: 'High',
+    dataSource: 'frontend-only',
+    dataSourceNote: 'Hardcoded in src/lib/auth.tsx until BE provides a user→store mapping',
+  },
 
   // --- Customer Search (Real API) ---
   {
@@ -227,10 +242,10 @@ const uatCases: UATCase[] = [
       'Click "Create Customer"',
     ],
     expectedResult:
-      'API POST /customers/createAccount is called. Success response shows the new customer ID. User is redirected to the customer profile page.',
+      'API POST /customers/createAccount is called with the session storeId injected as store_id in the payload. Success response shows the new customer ID. User is redirected to the customer profile page.',
     priority: 'Critical',
     dataSource: 'real-api',
-    dataSourceNote: 'POST /customers/createAccount — writes to Salesforce',
+    dataSourceNote: 'POST /customers/createAccount — writes to Salesforce. store_id field links the new account to the Store__c record.',
   },
   {
     id: 'CREATE-02',
@@ -322,10 +337,10 @@ const uatCases: UATCase[] = [
       'Click "Save Changes"',
     ],
     expectedResult:
-      'User is navigated to /customers/{email}/edit. API PATCH /customers/updateAccount is called with changed fields (including address via ShippingStreet/City/PostalCode/Country and children via figlio1-4). Success response confirms the update. User is redirected back to the profile page with updated values.',
+      'User is navigated to /customers/{email}/edit. API PATCH /customers/updateAccount is called with changed fields plus store_id (from session). Address is sent via ShippingStreet/City/PostalCode/Country and children via figlio1-4. Success response confirms the update. User is redirected back to the profile page with updated values.',
     priority: 'Critical',
     dataSource: 'real-api',
-    dataSourceNote: 'PATCH /customers/updateAccount — writes to Salesforce. Address fields mapped to ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry. Children mapped to figlio1-figlio4.',
+    dataSourceNote: 'PATCH /customers/updateAccount — writes to Salesforce including store_id, ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry, figlio1-figlio4.',
   },
 
   // --- Customer Edit ---
@@ -355,10 +370,10 @@ const uatCases: UATCase[] = [
       'Click "Save Changes"',
     ],
     expectedResult:
-      'PATCH /customers/updateAccount sends ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry, and figlio1-4 fields. Success message is shown and user is redirected to the profile page.',
+      'PATCH /customers/updateAccount sends ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry, figlio1-4 and store_id. Success message is shown and user is redirected to the profile page.',
     priority: 'High',
     dataSource: 'real-api',
-    dataSourceNote: 'PATCH /customers/updateAccount — address and children fields now fully supported in API v0.0.6',
+    dataSourceNote: 'PATCH /customers/updateAccount — address, children and store_id supported in API v0.0.8',
   },
 
   // --- Loyalty Ledger ---
@@ -396,91 +411,109 @@ const uatCases: UATCase[] = [
   {
     id: 'DASH-01',
     area: 'Dashboard',
-    title: 'Dashboard loads with KPI cards',
+    title: 'Dashboard loads with This Week + Last Week KPI cards',
     preconditions: 'User is logged in',
     steps: [
       'Navigate to / (Dashboard)',
+      'Wait for the segment calls to resolve',
     ],
     expectedResult:
-      'Dashboard shows KPI cards: Registered Today, This Week, Last Week, Last Month, Total Enrollments, Marketing Consent Rate. All numbers come from mock data — they are NOT real.',
-    priority: 'High',
-    dataSource: 'mock',
-    dataSourceNote: 'GET /api/stats — MSW mock handler. Generates 50 fake customers locally. No backend endpoint exists for stats.',
+      'Dashboard shows exactly two KPI cards: This Week and Last Week. The numbers match the length of the arrays returned by the two segment endpoints for the session store. No other KPIs render (Today/Last Month/Total Enrollments/Marketing Consent Rate were removed because no BE endpoint exists for them).',
+    priority: 'Critical',
+    dataSource: 'real-api',
+    dataSourceNote: 'GET /customers/created-this-week?store_id= and GET /customers/created-last-week?store_id= — both scoped to session.storeId.',
   },
   {
     id: 'DASH-02',
     area: 'Dashboard',
-    title: 'Dashboard — Recent Customers table',
-    preconditions: 'User is logged in',
+    title: 'This Week table is populated from real BE data',
+    preconditions: 'User is logged in. At least one customer was created this week in the scoped store.',
     steps: [
       'Navigate to / (Dashboard)',
-      'Scroll to the Recent Customers section',
+      'Look at the "This Week" table',
     ],
     expectedResult:
-      'Table shows 10 most recent customers with name, email, date, rank. All data is mock.',
-    priority: 'Medium',
-    dataSource: 'mock',
-    dataSourceNote: 'Part of GET /api/stats mock response — fake customer list generated by MSW',
+      'Table lists customers with Name, Email, Date, Rank badge (LoyaltyTier__c), Loyalty indicator (LoyaltyConsent__c), and a View button. Clicking View navigates to /customers/{email} and loads the profile from Salesforce.',
+    priority: 'Critical',
+    dataSource: 'real-api',
+    dataSourceNote: 'GET /customers/created-this-week?store_id= returns CustomerSegmentRecord[]. Ordered by CreatedDate DESC.',
   },
   {
     id: 'DASH-03',
     area: 'Dashboard',
-    title: 'Dashboard — Top Customers table',
-    preconditions: 'User is logged in',
+    title: 'Last Week table is populated from real BE data',
+    preconditions: 'User is logged in. At least one customer was created last week in the scoped store.',
     steps: [
       'Navigate to / (Dashboard)',
-      'Scroll to the Top Customers section',
+      'Look at the "Last Week" table (appears below This Week)',
     ],
     expectedResult:
-      'Table shows top 10 customers by spending with rank badges. All data is mock.',
-    priority: 'Medium',
-    dataSource: 'mock',
-    dataSourceNote: 'Part of GET /api/stats mock response — calculated from fake purchases by MSW',
+      'Table lists last-week customers with the same columns as This Week. Rank and loyalty indicator reflect the values returned by the BE.',
+    priority: 'Critical',
+    dataSource: 'real-api',
+    dataSourceNote: 'GET /customers/created-last-week?store_id= returns CustomerSegmentRecord[]. Ordered by CreatedDate DESC.',
   },
   {
     id: 'DASH-04',
     area: 'Dashboard',
-    title: 'Dashboard — Upcoming Birthdays',
-    preconditions: 'User is logged in',
+    title: 'Dashboard empty state when no customers in a segment',
+    preconditions: 'No customers were created this (or last) week in the scoped store',
     steps: [
       'Navigate to / (Dashboard)',
-      'Look for the Upcoming Birthdays section',
     ],
     expectedResult:
-      'Shows customers and children with birthdays this week. All data is mock.',
+      'The affected KPI card shows 0. The affected table shows a "No customers." message instead of a row list. The other table/KPI is unaffected.',
     priority: 'Medium',
-    dataSource: 'mock',
-    dataSourceNote: 'Part of GET /api/stats mock response — calculated from fake birthdate data by MSW',
+    dataSource: 'real-api',
+    dataSourceNote: 'BE returns an empty array; UI shows the empty state.',
   },
   {
     id: 'DASH-05',
     area: 'Dashboard',
-    title: 'Dashboard — Recent Purchases table',
-    preconditions: 'User is logged in',
+    title: 'End-to-end: create customer, reload dashboard, see it in This Week',
+    preconditions: 'User is logged in. The current store_id on the session matches a real Store__c record.',
     steps: [
-      'Navigate to / (Dashboard)',
-      'Scroll to the Recent Purchases section',
+      'Click "+ New Customer", complete registration with a unique email',
+      'After redirect to the new profile, navigate back to /',
+      'Observe the This Week KPI and table',
     ],
     expectedResult:
-      'Table shows recent purchases with customer name, items, date, amount. All data is mock.',
-    priority: 'Medium',
-    dataSource: 'mock',
-    dataSourceNote: 'Part of GET /api/stats mock response — 50 fake purchases generated by MSW',
+      'The newly-created customer appears at the top of the This Week table and the This Week KPI count incremented by one. This confirms that store_id is being written on create and the segment endpoint reads it back correctly.',
+    priority: 'Critical',
+    dataSource: 'real-api',
+    dataSourceNote: 'POST /customers/createAccount (with store_id) → GET /customers/created-this-week?store_id=',
   },
   {
     id: 'DASH-06',
     area: 'Dashboard',
-    title: 'Dashboard — CSV Export',
+    title: 'Segment endpoints use the session store_id',
     preconditions: 'User is logged in',
     steps: [
+      'Open DevTools → Network',
       'Navigate to / (Dashboard)',
-      'Click the CSV export button',
+      'Find the two GET requests to created-this-week and created-last-week',
     ],
     expectedResult:
-      'A CSV file is downloaded with customer data from the last 12 months. Data is mock.',
+      'Both requests include the same ?store_id= query parameter, matching session.storeId in localStorage (currently hardcoded to "a0W0E000004p9WeUAI"). Both return 200 with JSON arrays.',
+    priority: 'High',
+    dataSource: 'real-api',
+    dataSourceNote: 'Segment endpoints are store-scoped; wrong or missing store_id returns 404.',
+  },
+
+  // --- Stores ---
+  {
+    id: 'STORE-01',
+    area: 'Stores',
+    title: 'List stores for a country (manual verification)',
+    preconditions: 'User is logged in with a valid Firebase token',
+    steps: [
+      'In DevTools console, run: `await (await fetch("/api/stores/getStores?country=Italy", { headers: { Authorization: "Bearer " + JSON.parse(localStorage.session).token }})).json()`',
+    ],
+    expectedResult:
+      'Returns an array of StoreRecord with Id, Name, Country__c, Store_No__c, Sbs__c. The frontend does not yet render a store picker — this endpoint is wired up in src/lib/api-client.ts as storeApi.getStores and is ready for use when BE provides a way to resolve user → store.',
     priority: 'Medium',
-    dataSource: 'mock',
-    dataSourceNote: 'Exports from the same GET /api/stats mock data — not real Salesforce data',
+    dataSource: 'real-api',
+    dataSourceNote: 'GET /stores/getStores?country= — new in API v0.0.8. Currently NOT consumed by any UI; included in the client for future store-picker work.',
   },
 
   // --- Cross-cutting ---
@@ -554,6 +587,7 @@ const areaColors: Record<string, string> = {
   'Customer Edit': 'bg-cyan-50 border-cyan-200',
   'Loyalty Ledger': 'bg-amber-50 border-amber-200',
   Dashboard: 'bg-teal-50 border-teal-200',
+  Stores: 'bg-lime-50 border-lime-200',
   'Cross-cutting': 'bg-gray-50 border-gray-200',
 };
 
@@ -583,7 +617,7 @@ export function UAT() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">UAT Test Plan</h1>
             <p className="text-sm text-gray-600 mt-1">
-              Monnalisa Retail App — End-to-End User Acceptance Tests
+              Monnalisa Retail App — End-to-End User Acceptance Tests (API v0.0.8)
             </p>
           </div>
           <Button variant="outline" onClick={() => navigate('/')}>
@@ -642,21 +676,68 @@ export function UAT() {
           </div>
         </div>
 
-        {/* Mock Data Warning */}
-        <div className="bg-red-50 border border-red-200 rounded-lg mb-6 p-4">
-          <h2 className="text-sm font-semibold text-red-800 mb-2">Areas Still Using Mock Data</h2>
-          <ul className="text-sm text-red-700 list-disc list-inside space-y-1">
+        {/* v0.0.8 Changes */}
+        <div className="bg-green-50 border border-green-200 rounded-lg mb-6 p-4">
+          <h2 className="text-sm font-semibold text-green-800 mb-2">API v0.0.8 — What's Newly Integrated</h2>
+          <ul className="text-sm text-green-800 list-disc list-inside space-y-1">
             <li>
-              <strong>Dashboard</strong> — All KPIs, customer tables, purchases, birthdays, and CSV export come from <code className="bg-red-100 px-1 rounded">GET /api/stats</code> (MSW mock with 50 fake customers). No real backend endpoint exists for aggregated stats.
+              <strong>Dashboard This Week / Last Week KPIs and tables</strong> now pulled from{' '}
+              <code className="bg-green-100 px-1 rounded">GET /customers/created-this-week?store_id=</code> and{' '}
+              <code className="bg-green-100 px-1 rounded">GET /customers/created-last-week?store_id=</code>. All other mock-backed dashboard sections were removed from the UI.
+            </li>
+            <li>
+              <strong>store_id</strong> is now sent on{' '}
+              <code className="bg-green-100 px-1 rounded">POST /customers/createAccount</code> and{' '}
+              <code className="bg-green-100 px-1 rounded">PATCH /customers/updateAccount</code>, tagging accounts to the current Store__c record.
+            </li>
+            <li>
+              <strong>storeApi.getStores</strong> (<code className="bg-green-100 px-1 rounded">GET /stores/getStores?country=</code>) is wired up in the API client for future store-picker work — not yet rendered in any UI.
             </li>
           </ul>
+        </div>
+
+        {/* API Data Gaps — Backend Requests */}
+        <div className="bg-amber-50 border border-amber-200 rounded-lg mb-6 p-4">
+          <h2 className="text-sm font-semibold text-amber-800 mb-2">API Data Gaps &mdash; Backend Team Action Required</h2>
+          <p className="text-xs text-amber-700 mb-3">
+            These capabilities are either shown/needed in the frontend but have no corresponding API support, or are currently worked around with a hardcode.
+          </p>
+          <div className="space-y-3 text-sm text-amber-900">
+            <div className="bg-white border border-amber-200 rounded p-3">
+              <p className="font-semibold">User &rarr; Store mapping</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Firebase login returns only an email/UID. There is no way to resolve which Salesforce <code className="bg-amber-100 px-1 rounded">Store__c</code> record the authenticated user belongs to.
+                <strong> Workaround:</strong> hardcoded <code className="bg-amber-100 px-1 rounded">storeId = "a0W0E000004p9WeUAI"</code> in <code className="bg-amber-100 px-1 rounded">src/lib/auth.tsx</code>.
+                <strong> Ask:</strong> add a custom Firebase claim or a <code className="bg-amber-100 px-1 rounded">/users/me</code> endpoint that returns the store_id for the authenticated user.
+              </p>
+            </div>
+            <div className="bg-white border border-amber-200 rounded p-3">
+              <p className="font-semibold">Purchase History</p>
+              <p className="text-xs text-amber-700 mt-1">
+                Confirmed unavailable by BE: "non posso recuperare dal BFF senza analisi e coinvolgimento del team CRM". No purchases field, no endpoint. "Previous Purchases" placeholder on the Profile page remains inert.
+              </p>
+            </div>
+            <div className="bg-white border border-amber-200 rounded p-3">
+              <p className="font-semibold">Rewards / Coupons</p>
+              <p className="text-xs text-amber-700 mt-1">
+                The Profile page still shows a rewards section with <strong>hardcoded mock data</strong> (5 fake coupons).
+                No API endpoint exists for rewards or coupons.
+              </p>
+            </div>
+            <div className="bg-white border border-amber-200 rounded p-3">
+              <p className="font-semibold">Aggregate stats (historical windows beyond this/last week)</p>
+              <p className="text-xs text-amber-700 mt-1">
+                "Last Month", "Total Enrollments", "Marketing Consent Rate", "Top Customers (12 months)", "Upcoming Birthdays" were removed from the Dashboard — no BE endpoint provides these aggregates today.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Customer Profile — Field-Level Data Source Report */}
         <div className="bg-white rounded-lg border mb-6 p-4">
           <h2 className="text-lg font-semibold text-gray-900 mb-2">Customer Profile &mdash; Field-Level Data Report</h2>
           <p className="text-xs text-gray-500 mb-4">
-            What the Customer Profile and Edit pages display vs what the API actually provides via <code className="bg-gray-100 px-1 rounded">GET /customers/getAccount</code>.
+            What the Customer Profile and Edit pages display vs what the API actually provides via <code className="bg-gray-100 px-1 rounded">GET /customers/getAccount</code> (v0.0.8).
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -689,6 +770,7 @@ export function UAT() {
                   { field: 'City', profile: false, edit: true, read: 'ShippingCity', write: 'ShippingCity', status: 'ok' },
                   { field: 'Postal Code', profile: false, edit: true, read: 'ShippingPostalCode', write: 'ShippingPostalCode', status: 'ok' },
                   { field: 'Country', profile: false, edit: true, read: 'ShippingCountry', write: 'ShippingCountry', status: 'ok' },
+                  { field: 'Preferred Store', profile: false, edit: false, read: 'store (PreferredStoreInfo)', write: 'store_id', status: 'ok' },
                   { field: 'Preferences (style, age, etc)', profile: false, edit: false, read: null, write: null, status: 'removed' },
                   { field: 'Privacy Consent', profile: false, edit: false, read: null, write: null, status: 'removed' },
                   { field: 'Rewards / Coupons', profile: true, edit: false, read: null, write: null, status: 'mock' },
@@ -715,30 +797,6 @@ export function UAT() {
           </div>
         </div>
 
-        {/* API Data Gaps — Backend Requests */}
-        <div className="bg-amber-50 border border-amber-200 rounded-lg mb-6 p-4">
-          <h2 className="text-sm font-semibold text-amber-800 mb-2">API Data Gaps &mdash; Backend Team Action Required</h2>
-          <p className="text-xs text-amber-700 mb-3">
-            The following data is shown or editable in the frontend but has no corresponding field in the BFF API (<code className="bg-amber-100 px-1 rounded">monnalisa-mid-prd-api-cfg-v0-0-6</code>).
-          </p>
-          <div className="space-y-3 text-sm text-amber-900">
-            <div className="bg-white border border-amber-200 rounded p-3">
-              <p className="font-semibold">Rewards / Coupons</p>
-              <p className="text-xs text-amber-700 mt-1">
-                The Profile page shows a rewards section with <strong>hardcoded mock data</strong> (5 fake coupons).
-                No API endpoint exists for rewards or coupons.
-              </p>
-            </div>
-            <div className="bg-white border border-amber-200 rounded p-3">
-              <p className="font-semibold">Purchase History</p>
-              <p className="text-xs text-amber-700 mt-1">
-                A "Previous Purchases" section exists on the Profile page but shows a placeholder message.
-                No API endpoint exists for customer purchase history.
-              </p>
-            </div>
-          </div>
-        </div>
-
         {/* API Endpoints Reference */}
         <div className="bg-white rounded-lg border mb-8 p-4">
           <h2 className="text-lg font-semibold text-gray-900 mb-3">API Endpoints</h2>
@@ -761,21 +819,27 @@ export function UAT() {
                 </tr>
                 <tr className="border-b">
                   <td className="py-2 pr-4"><code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">GET</code></td>
+                  <td className="py-2 pr-4 font-mono text-xs">/customers/checkPhoneExists?phone=</td>
+                  <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API</span></td>
+                  <td className="py-2 text-xs text-gray-500">Customer Creation</td>
+                </tr>
+                <tr className="border-b">
+                  <td className="py-2 pr-4"><code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">GET</code></td>
                   <td className="py-2 pr-4 font-mono text-xs">/customers/getAccount?email=</td>
                   <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API</span></td>
-                  <td className="py-2 text-xs text-gray-500">Customer Profile</td>
+                  <td className="py-2 text-xs text-gray-500">Customer Profile / Edit</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-2 pr-4"><code className="bg-green-100 text-green-800 px-1.5 py-0.5 rounded text-xs">POST</code></td>
                   <td className="py-2 pr-4 font-mono text-xs">/customers/createAccount</td>
                   <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API</span></td>
-                  <td className="py-2 text-xs text-gray-500">Customer Creation</td>
+                  <td className="py-2 text-xs text-gray-500">Customer Creation (sends store_id)</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-2 pr-4"><code className="bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded text-xs">PATCH</code></td>
                   <td className="py-2 pr-4 font-mono text-xs">/customers/updateAccount?email=</td>
                   <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API</span></td>
-                  <td className="py-2 text-xs text-gray-500">Customer Profile</td>
+                  <td className="py-2 text-xs text-gray-500">Customer Edit (sends store_id)</td>
                 </tr>
                 <tr className="border-b">
                   <td className="py-2 pr-4"><code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">GET</code></td>
@@ -789,23 +853,29 @@ export function UAT() {
                   <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API</span></td>
                   <td className="py-2 text-xs text-gray-500">Header Search</td>
                 </tr>
-                <tr className="border-b bg-red-50">
+                <tr className="border-b bg-green-50">
                   <td className="py-2 pr-4"><code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">GET</code></td>
-                  <td className="py-2 pr-4 font-mono text-xs">/api/stats</td>
-                  <td className="py-2 pr-4"><span className="text-red-600 font-medium text-xs">MSW Mock</span></td>
-                  <td className="py-2 text-xs text-gray-500">Dashboard</td>
+                  <td className="py-2 pr-4 font-mono text-xs">/customers/created-this-week?store_id=</td>
+                  <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API (new v0.0.8)</span></td>
+                  <td className="py-2 text-xs text-gray-500">Dashboard — This Week</td>
                 </tr>
-                <tr className="border-b">
+                <tr className="border-b bg-green-50">
                   <td className="py-2 pr-4"><code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">GET</code></td>
-                  <td className="py-2 pr-4 font-mono text-xs">/customers/checkPhoneExists?phone=</td>
-                  <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API</span></td>
-                  <td className="py-2 text-xs text-gray-500">Customer Creation</td>
+                  <td className="py-2 pr-4 font-mono text-xs">/customers/created-last-week?store_id=</td>
+                  <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API (new v0.0.8)</span></td>
+                  <td className="py-2 text-xs text-gray-500">Dashboard — Last Week</td>
+                </tr>
+                <tr className="border-b bg-green-50">
+                  <td className="py-2 pr-4"><code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">GET</code></td>
+                  <td className="py-2 pr-4 font-mono text-xs">/stores/getStores?country=</td>
+                  <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API (new v0.0.8)</span></td>
+                  <td className="py-2 text-xs text-gray-500">Client wired; no UI consumer yet</td>
                 </tr>
               </tbody>
             </table>
           </div>
           <p className="text-xs text-gray-500 mt-3">
-            Real API: monnalisa-mid-prd-api-cfg-v0-0-6 | Auth: Firebase Bearer Token | MSW Mocks: browser-only, dev mode
+            Real API: monnalisa-mid-prd-api-cfg-v0-0-8 | Auth: Firebase Bearer Token | MSW Mocks: disabled on Dashboard (no remaining mocked endpoints consumed by the app)
           </p>
         </div>
 

@@ -87,6 +87,7 @@ export function CustomerEdit() {
     try {
       const token = await getValidToken();
       const updateRequest = toUpdateRequest({ firstName, lastName, phone: phone ? `${phoneCountry} ${phone}` : undefined, dateOfBirth: dateOfBirth || undefined, address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined, loyaltyEnrollment, marketingConsent, children: children.length > 0 ? children : undefined });
+      if (session?.storeId) updateRequest.store_id = session.storeId;
       await customerApi.updateAccount(decodedEmail, updateRequest, token);
       setSubmitSuccess(true);
       setTimeout(() => navigate(`/customers/${encodeURIComponent(decodedEmail)}`), 1000);
