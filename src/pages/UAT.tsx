@@ -95,17 +95,50 @@ const uatCases: UATCase[] = [
   {
     id: 'AUTH-06',
     area: 'Authentication',
-    title: 'Session is tagged with a hardcoded Salesforce Store ID',
-    preconditions: 'User just logged in (fresh session)',
+    title: 'Session store_id comes from Firebase custom claim',
+    preconditions: 'Fresh login with a user that has the store_id custom claim set on the BE (e.g. storemanager1@monnalisa.com or storemanager2@monnalisa.com)',
     steps: [
+      'Log in',
       'Open DevTools → Application → Local Storage → session',
       'Inspect the "storeId" field',
+      'Decode the JWT in the "token" field (e.g. at jwt.io) and check the custom claim payload',
     ],
     expectedResult:
-      'storeId equals "a0W0E000004p9WeUAI" — the hardcoded Salesforce Store__c record Id used by the segment endpoints. No user→store lookup exists yet; see API Gaps below.',
+      'session.storeId equals the Salesforce Store__c Id embedded in the JWT custom claim (a JSON value like {"store_id":"a0W0E000004p9WdUAI"}). On token refresh, storeId is re-derived from the refreshed idToken. If the user has no claim, a console warning is logged and a fallback store_id is used.',
+    priority: 'Critical',
+    dataSource: 'real-api',
+    dataSourceNote: 'Firebase custom claim set server-side; decoded client-side in extractStoreIdFromToken() / resolveStoreId().',
+  },
+  {
+    id: 'AUTH-07',
+    area: 'Authentication',
+    title: 'Second test account resolves to its own store',
+    preconditions: 'BE has assigned different store_ids to storemanager1@monnalisa.com and storemanager2@monnalisa.com',
+    steps: [
+      'Log in as storemanager1@monnalisa.com, note session.storeId',
+      'Logout, log in as storemanager2@monnalisa.com, note session.storeId',
+    ],
+    expectedResult:
+      'Each account carries its own store_id from its Firebase custom claim. The Dashboard segments are scoped independently per account.',
     priority: 'High',
-    dataSource: 'frontend-only',
-    dataSourceNote: 'Hardcoded in src/lib/auth.tsx until BE provides a user→store mapping',
+    dataSource: 'real-api',
+    dataSourceNote: 'Validates end-to-end user→store binding without any hardcoding.',
+  },
+  {
+    id: 'AUTH-08',
+    area: 'Authentication',
+    title: 'Real store name is fetched on login and rendered in the header',
+    preconditions: 'Fresh login (cached sessions must be cleared first)',
+    steps: [
+      'Log in',
+      'Look at the top-right of the header bar',
+      'Open DevTools → Network and observe the single GET /stores/getStores call that fired during login',
+    ],
+    expectedResult:
+      'Header shows the real Salesforce Store Name (the Name field of the StoreRecord whose Id matches session.storeId), not the old "Milano Boutique" placeholder. localStorage.session.storeName equals that Name. The CustomerNew and CustomerEdit "Store" panels show the same real Name, a derived Location ("Store #X · Country"), the real Store ID, and the sales associate email.',
+    priority: 'High',
+    dataSource: 'real-api',
+    dataSourceNote: 'GET /stores/getStores called once during login(); match by Id; results populate session.storeName + session.storeAddress.',
   },
 
   // --- Customer Search (Real API) ---
@@ -242,10 +275,10 @@ const uatCases: UATCase[] = [
       'Click "Create Customer"',
     ],
     expectedResult:
-      'API POST /customers/createAccount is called with the session storeId injected as store_id in the payload. Success response shows the new customer ID. User is redirected to the customer profile page.',
+      'API POST /customers/createAccount is called. The payload carries: store_id (from session, derived from the JWT custom claim), Preferred_Locale__c (mapped from the selected Country — e.g. France → fr_FR), FirstName, LastName, PersonEmail, Phone in E.164, marketingConsent__c, LoyaltyRequest__c, and any filled children slots. Success response returns the new Account Id. User is redirected to the profile page.',
     priority: 'Critical',
     dataSource: 'real-api',
-    dataSourceNote: 'POST /customers/createAccount — writes to Salesforce. store_id field links the new account to the Store__c record.',
+    dataSourceNote: 'POST /customers/createAccount — store_id links to Store__c; Preferred_Locale__c via localeFromCountry() in src/lib/api-transforms.ts.',
   },
   {
     id: 'CREATE-02',
@@ -337,10 +370,10 @@ const uatCases: UATCase[] = [
       'Click "Save Changes"',
     ],
     expectedResult:
-      'User is navigated to /customers/{email}/edit. API PATCH /customers/updateAccount is called with changed fields plus store_id (from session). Address is sent via ShippingStreet/City/PostalCode/Country and children via figlio1-4. Success response confirms the update. User is redirected back to the profile page with updated values.',
+      'User is navigated to /customers/{email}/edit. API PATCH /customers/updateAccount is called with changed fields plus store_id (session, claim-derived) and Preferred_Locale__c (mapped from Country). Address is sent via ShippingStreet/City/PostalCode/Country and children via figlio1-4. Success response confirms the update. User is redirected back to the profile page with updated values.',
     priority: 'Critical',
     dataSource: 'real-api',
-    dataSourceNote: 'PATCH /customers/updateAccount — writes to Salesforce including store_id, ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry, figlio1-figlio4.',
+    dataSourceNote: 'PATCH /customers/updateAccount — writes to Salesforce including store_id, Preferred_Locale__c, ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry, figlio1-figlio4.',
   },
 
   // --- Customer Edit ---
@@ -370,10 +403,10 @@ const uatCases: UATCase[] = [
       'Click "Save Changes"',
     ],
     expectedResult:
-      'PATCH /customers/updateAccount sends ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry, figlio1-4 and store_id. Success message is shown and user is redirected to the profile page.',
+      'PATCH /customers/updateAccount sends ShippingStreet, ShippingCity, ShippingPostalCode, ShippingCountry, figlio1-4, store_id and Preferred_Locale__c (mapped from Country). Success message is shown and user is redirected to the profile page.',
     priority: 'High',
     dataSource: 'real-api',
-    dataSourceNote: 'PATCH /customers/updateAccount — address, children and store_id supported in API v0.0.8',
+    dataSourceNote: 'PATCH /customers/updateAccount — address, children, store_id and locale supported in API v0.0.8',
   },
 
   // --- Loyalty Ledger ---
@@ -494,7 +527,7 @@ const uatCases: UATCase[] = [
       'Find the two GET requests to created-this-week and created-last-week',
     ],
     expectedResult:
-      'Both requests include the same ?store_id= query parameter, matching session.storeId in localStorage (currently hardcoded to "a0W0E000004p9WeUAI"). Both return 200 with JSON arrays.',
+      'Both requests include the same ?store_id= query parameter, matching session.storeId in localStorage. That value was derived from the Firebase custom claim on the authenticated user. Both return 200 with JSON arrays.',
     priority: 'High',
     dataSource: 'real-api',
     dataSourceNote: 'Segment endpoints are store-scoped; wrong or missing store_id returns 404.',
@@ -504,16 +537,35 @@ const uatCases: UATCase[] = [
   {
     id: 'STORE-01',
     area: 'Stores',
-    title: 'List stores for a country (manual verification)',
-    preconditions: 'User is logged in with a valid Firebase token',
+    title: 'Login resolves the real store Name from /stores/getStores',
+    preconditions: 'Fresh login (no cached session) with a user that has a valid store_id claim',
     steps: [
-      'In DevTools console, run: `await (await fetch("/api/stores/getStores?country=Italy", { headers: { Authorization: "Bearer " + JSON.parse(localStorage.session).token }})).json()`',
+      'Clear localStorage',
+      'Log in',
+      'Open DevTools → Network and filter by "getStores"',
+      'Inspect the request and the resulting session in Local Storage',
     ],
     expectedResult:
-      'Returns an array of StoreRecord with Id, Name, Country__c, Store_No__c, Sbs__c. The frontend does not yet render a store picker — this endpoint is wired up in src/lib/api-client.ts as storeApi.getStores and is ready for use when BE provides a way to resolve user → store.',
+      'A single GET /stores/getStores request fires during login. Among the StoreRecord array, the one with Id matching the claim store_id has its Name copied into session.storeName, and "Store #<Store_No__c> · <Country__c>" is stored in session.storeAddress. These power the header and the CustomerNew / CustomerEdit store panels.',
+    priority: 'High',
+    dataSource: 'real-api',
+    dataSourceNote: 'GET /stores/getStores (no country filter) — called once per login in fetchStoreDetails() (src/lib/auth.tsx).',
+  },
+  {
+    id: 'STORE-02',
+    area: 'Stores',
+    title: 'getStores failure degrades gracefully',
+    preconditions: 'Simulate a BE failure (e.g. block the endpoint in DevTools → Network → Block request URL)',
+    steps: [
+      'Clear localStorage',
+      'Block /stores/getStores in DevTools',
+      'Log in',
+    ],
+    expectedResult:
+      'Login still succeeds. Header shows "Store" as a fallback; Location is empty; a console.warn "[auth] Failed to fetch store details" is logged. store_id (from the JWT claim) is still populated, so the Dashboard segment endpoints keep working.',
     priority: 'Medium',
     dataSource: 'real-api',
-    dataSourceNote: 'GET /stores/getStores?country= — new in API v0.0.8. Currently NOT consumed by any UI; included in the client for future store-picker work.',
+    dataSourceNote: 'Defensive fallback path in fetchStoreDetails() — prevents a transient /stores failure from bricking login.',
   },
 
   // --- Cross-cutting ---
@@ -681,17 +733,23 @@ export function UAT() {
           <h2 className="text-sm font-semibold text-green-800 mb-2">API v0.0.8 — What's Newly Integrated</h2>
           <ul className="text-sm text-green-800 list-disc list-inside space-y-1">
             <li>
-              <strong>Dashboard This Week / Last Week KPIs and tables</strong> now pulled from{' '}
+              <strong>User &rarr; Store mapping</strong> is now resolved via Firebase custom claims. The ID token's payload carries <code className="bg-green-100 px-1 rounded">{'{"store_id":"..."}'}</code>; the frontend decodes it on login and on every token refresh.
+            </li>
+            <li>
+              <strong>Real store Name and Location</strong> are fetched via <code className="bg-green-100 px-1 rounded">GET /stores/getStores</code> during login, matched by the claim's store_id. They populate <code className="bg-green-100 px-1 rounded">session.storeName</code> (header bar) and <code className="bg-green-100 px-1 rounded">session.storeAddress</code> (CustomerNew/Edit store panel). Sales Associate now shows the manager's email instead of a Firebase UID.
+            </li>
+            <li>
+              <strong>Dashboard This Week / Last Week KPIs and tables</strong> pulled from{' '}
               <code className="bg-green-100 px-1 rounded">GET /customers/created-this-week?store_id=</code> and{' '}
               <code className="bg-green-100 px-1 rounded">GET /customers/created-last-week?store_id=</code>. All other mock-backed dashboard sections were removed from the UI.
             </li>
             <li>
-              <strong>store_id</strong> is now sent on{' '}
+              <strong>store_id</strong> is sent on{' '}
               <code className="bg-green-100 px-1 rounded">POST /customers/createAccount</code> and{' '}
               <code className="bg-green-100 px-1 rounded">PATCH /customers/updateAccount</code>, tagging accounts to the current Store__c record.
             </li>
             <li>
-              <strong>storeApi.getStores</strong> (<code className="bg-green-100 px-1 rounded">GET /stores/getStores?country=</code>) is wired up in the API client for future store-picker work — not yet rendered in any UI.
+              <strong>Preferred_Locale__c</strong> is now derived from the customer's Country field on the form (Italy &rarr; it_IT, France &rarr; fr_FR, etc.) via <code className="bg-green-100 px-1 rounded">localeFromCountry()</code>. Previously hardcoded to <code className="bg-green-100 px-1 rounded">it_IT</code>.
             </li>
           </ul>
         </div>
@@ -703,12 +761,10 @@ export function UAT() {
             These capabilities are either shown/needed in the frontend but have no corresponding API support, or are currently worked around with a hardcode.
           </p>
           <div className="space-y-3 text-sm text-amber-900">
-            <div className="bg-white border border-amber-200 rounded p-3">
-              <p className="font-semibold">User &rarr; Store mapping</p>
-              <p className="text-xs text-amber-700 mt-1">
-                Firebase login returns only an email/UID. There is no way to resolve which Salesforce <code className="bg-amber-100 px-1 rounded">Store__c</code> record the authenticated user belongs to.
-                <strong> Workaround:</strong> hardcoded <code className="bg-amber-100 px-1 rounded">storeId = "a0W0E000004p9WeUAI"</code> in <code className="bg-amber-100 px-1 rounded">src/lib/auth.tsx</code>.
-                <strong> Ask:</strong> add a custom Firebase claim or a <code className="bg-amber-100 px-1 rounded">/users/me</code> endpoint that returns the store_id for the authenticated user.
+            <div className="bg-white border border-green-200 rounded p-3">
+              <p className="font-semibold text-green-800">User &rarr; Store mapping &mdash; RESOLVED</p>
+              <p className="text-xs text-green-700 mt-1">
+                BE sets a Firebase custom claim on each user containing <code className="bg-green-100 px-1 rounded">{'{"store_id":"..."}'}</code>. The frontend decodes the idToken JWT payload on login and on token refresh (<code className="bg-green-100 px-1 rounded">extractStoreIdFromToken()</code>), then calls <code className="bg-green-100 px-1 rounded">storeApi.getStores</code> to resolve the matching Salesforce Store Name and Country into the session. Header and register/edit store panels render the real values. Fallback store_id with a console warning if the claim is missing.
               </p>
             </div>
             <div className="bg-white border border-amber-200 rounded p-3">
@@ -718,10 +774,9 @@ export function UAT() {
               </p>
             </div>
             <div className="bg-white border border-amber-200 rounded p-3">
-              <p className="font-semibold">Rewards / Coupons</p>
+              <p className="font-semibold">Coupons &amp; Consumables</p>
               <p className="text-xs text-amber-700 mt-1">
-                The Profile page still shows a rewards section with <strong>hardcoded mock data</strong> (5 fake coupons).
-                No API endpoint exists for rewards or coupons.
+                <strong>Not in scope for this release.</strong> The Profile page does not display coupons or consumables. Rewards activity IS real &mdash; it's driven by <code className="bg-amber-100 px-1 rounded">GET /customers/getLoyaltyLedger</code> (Loyalty Point Ledger records).
               </p>
             </div>
             <div className="bg-white border border-amber-200 rounded p-3">
@@ -773,7 +828,7 @@ export function UAT() {
                   { field: 'Preferred Store', profile: false, edit: false, read: 'store (PreferredStoreInfo)', write: 'store_id', status: 'ok' },
                   { field: 'Preferences (style, age, etc)', profile: false, edit: false, read: null, write: null, status: 'removed' },
                   { field: 'Privacy Consent', profile: false, edit: false, read: null, write: null, status: 'removed' },
-                  { field: 'Rewards / Coupons', profile: true, edit: false, read: null, write: null, status: 'mock' },
+                  { field: 'Loyalty Ledger / Activity', profile: true, edit: false, read: 'LoyaltyPointLedger records (AppliedRules__c, Points__c, OperationDate__c, Status__c, TransactionNumber__c)', write: null, status: 'ok' },
                   { field: 'Previous Purchases', profile: true, edit: false, read: null, write: null, status: 'gap' },
                 ].map((row) => (
                   <tr key={row.field} className={`border-b ${
@@ -869,7 +924,7 @@ export function UAT() {
                   <td className="py-2 pr-4"><code className="bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded text-xs">GET</code></td>
                   <td className="py-2 pr-4 font-mono text-xs">/stores/getStores?country=</td>
                   <td className="py-2 pr-4"><span className="text-green-600 font-medium text-xs">Real API (new v0.0.8)</span></td>
-                  <td className="py-2 text-xs text-gray-500">Client wired; no UI consumer yet</td>
+                  <td className="py-2 text-xs text-gray-500">Login flow — resolves store Name & Address</td>
                 </tr>
               </tbody>
             </table>

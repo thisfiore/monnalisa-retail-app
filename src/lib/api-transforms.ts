@@ -8,6 +8,24 @@ import type {
   PersonAccountUpdateRequest,
 } from './api-types.ts';
 
+const COUNTRY_TO_LOCALE: Record<string, string> = {
+  Italy: 'it_IT',
+  France: 'fr_FR',
+  Germany: 'de_DE',
+  Spain: 'es_ES',
+  Switzerland: 'it_CH',
+  'United Kingdom': 'en_GB',
+  'United States': 'en_US',
+  China: 'zh_CN',
+  Japan: 'ja_JP',
+};
+
+/** Map the customer's country (as selected in the form) to a BFF locale code. */
+export function localeFromCountry(country: string | undefined): string {
+  if (!country) return 'it_IT';
+  return COUNTRY_TO_LOCALE[country] ?? 'it_IT';
+}
+
 /**
  * Strip all whitespace and non-digit characters except leading '+'.
  * Input:  "+39 333 123 1231"  →  "+393331231231"

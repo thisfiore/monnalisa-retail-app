@@ -16,24 +16,69 @@ type Activity = {
   description: string;
   date: string;
   points: number;
+  transactionNumber?: string;
 };
 
-const mockRewards = [
-  { id: '1', name: 'Welcome Discount', description: '15% off your next purchase', available: true, used: false, consumable: true },
-  { id: '2', name: 'Early Access Sale', description: 'Shop ahead of the crowd', available: true, used: false, consumable: false },
-  { id: '3', name: '10% Birthday Discount', description: 'Valid during birthday month', available: true, used: false, consumable: false },
-  { id: '4', name: 'Free Shipping', description: 'Used on October 10, 2025', available: false, used: true, consumable: true },
-  { id: '5', name: 'VIP Event Access', description: 'Used on September 15, 2025', available: false, used: true, consumable: true },
-];
+type TierBenefit = { name: string; description: string };
+
+const TIER_BENEFITS: Record<string, TierBenefit[]> = {
+  Family: [
+    { name: 'Welcome Bonus', description: '10% off your first in-store or online purchase after registration' },
+    { name: 'Kids Birthday Voucher', description: '20% off on a day of your choice during your child\'s birthday week, online and in store' },
+    { name: 'Exclusive Offers', description: 'Early access to offers dedicated to your Family tier' },
+    { name: 'Home Delivery', description: 'Free home delivery for in-store purchases with a minimum spend of \u20AC500' },
+    { name: '2NDACT Offers', description: 'Early access to 2NDACT offers dedicated to your Family tier' },
+    { name: 'Free Returns', description: 'Free returns on every purchase made online or in store' },
+  ],
+  Flower: [
+    { name: 'Upgrade Bonus', description: '15% off your first in-store or online purchase after registration' },
+    { name: 'Kids Birthday Voucher', description: '25% off on a day of your choice during your child\'s birthday week, online and in store' },
+    { name: 'Exclusive Offers', description: 'Early access to offers dedicated to your Flower tier' },
+    { name: 'Home Delivery', description: 'Free home delivery for in-store purchases with a minimum spend of \u20AC300' },
+    { name: '2NDACT Offers', description: 'Early access to 2NDACT offers dedicated to your Flower tier' },
+    { name: 'Extended Free Returns', description: '30 days to request free returns on all online orders and in-store purchases, including On Demand' },
+  ],
+  Fairytale: [
+    { name: 'Upgrade Bonus', description: '20% off your first in-store or online purchase after registration' },
+    { name: 'Kids Birthday Voucher', description: '25% off on a day of your choice during your child\'s birthday week, online and in store' },
+    { name: 'Exclusive Offers', description: 'Access to offers dedicated to your Fairytale tier' },
+    { name: 'Home Delivery', description: 'Free home delivery for in-store purchases with a minimum spend of \u20AC200' },
+    { name: '2NDACT Offers', description: 'Early access to 2NDACT offers dedicated to your Fairytale tier' },
+    { name: 'Extended Free Returns', description: '30 days to request free returns on all online orders and in-store purchases' },
+    { name: 'Dedicated Gift', description: 'A surprise gift dedicated to your Fairytale tier, once a year' },
+  ],
+  Fashion: [
+    { name: 'Upgrade Bonus', description: '25% off your first in-store or online purchase after registration' },
+    { name: 'Kids Birthday Voucher', description: '25% off on a day of your choice during your child\'s birthday week, online and in store' },
+    { name: 'Exclusive Offers', description: 'Access to offers dedicated to your Fashion tier' },
+    { name: 'Free Shipping', description: 'Free delivery online and in store' },
+    { name: '2NDACT Offers', description: 'Early access to 2NDACT offers dedicated to your Fashion tier' },
+    { name: 'Extended Free Returns', description: '100 days to return all online orders and in-store purchases' },
+    { name: 'Birthday Gift', description: 'Celebrate your birthday month with a \u20AC100 voucher (Fun Lover)' },
+    { name: 'Dedicated Gift', description: 'A surprise gift dedicated to your Fashion tier, once a year' },
+    { name: 'Free Packaging', description: 'Our exclusive Monnalisa branded packaging, free on request' },
+    { name: 'Personal Shopper', description: 'Free styling advice and consultations with our personal shoppers at dedicated times throughout the year' },
+  ],
+};
+
+const RULE_LABELS: Record<string, { type: 'order' | 'event'; label: string }> = {
+  markdownmultiplier: { type: 'order', label: 'Order' },
+  myaccount: { type: 'event', label: 'Account Registration' },
+};
 
 function mapLedgerToActivities(records: LoyaltyPointLedgerEntry[]): Activity[] {
-  return records.map((entry, index) => ({
-    id: String(index + 1),
-    type: (entry.AppliedRules__c?.toLowerCase().includes('event') ? 'event' : 'order') as 'order' | 'event',
-    description: entry.AppliedRules__c || 'Loyalty transaction',
-    date: entry.OperationDate__c || '',
-    points: entry.Points__c || 0,
-  }));
+  return records.map((entry, index) => {
+    const ruleKey = (entry.AppliedRules__c || '').toLowerCase();
+    const match = RULE_LABELS[ruleKey];
+    return {
+      id: String(index + 1),
+      type: match?.type ?? (ruleKey.includes('event') ? 'event' : 'order'),
+      description: match?.label ?? entry.AppliedRules__c ?? 'Loyalty transaction',
+      date: entry.OperationDate__c || '',
+      points: entry.Points__c || 0,
+      transactionNumber: entry.TransactionNumber__c || undefined,
+    };
+  });
 }
 
 export function CustomerProfile() {
@@ -46,10 +91,8 @@ export function CustomerProfile() {
   const [totalPoints, setTotalPoints] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [rewards, setRewards] = useState(mockRewards);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newActivity, setNewActivity] = useState({ type: 'event', description: '', points: 50 });
-  const [showConsumedCoupons, setShowConsumedCoupons] = useState(false);
 
   const isLoyaltyMember = customer?.loyaltyEnrollment === true;
 
@@ -82,10 +125,6 @@ export function CustomerProfile() {
     setNewActivity({ type: 'event', description: '', points: 50 });
   };
 
-  const handleUseReward = (rewardId: string) => {
-    setRewards(rewards.map(r => r.id === rewardId ? { ...r, used: true, available: false } : r));
-  };
-
   if (isLoading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="flex items-center gap-3 text-gray-400">
@@ -102,7 +141,11 @@ export function CustomerProfile() {
     </div>
   );
 
-  const rankValue = customer.rank || 'Family';
+  // Derive rank from points locally so badge and progress bar are always consistent
+  const rankValue: string = totalPoints >= 5000 ? 'Fashion'
+    : totalPoints >= 2500 ? 'Fairytale'
+    : totalPoints >= 500 ? 'Flower'
+    : 'Family';
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -152,17 +195,28 @@ export function CustomerProfile() {
                     const ranks = [
                       { name: 'Family', threshold: 0, gradient: 'from-orange-700 via-amber-600 to-orange-800', color: 'bg-orange-600' },
                       { name: 'Flower', threshold: 500, gradient: 'from-slate-400 via-gray-300 to-slate-500', color: 'bg-slate-400' },
-                      { name: 'Fairytale', threshold: 1000, gradient: 'from-yellow-500 via-amber-400 to-yellow-600', color: 'bg-yellow-500' },
-                      { name: 'Fashion', threshold: 2000, gradient: 'from-slate-200 via-gray-100 to-slate-300', color: 'bg-slate-300' },
+                      { name: 'Fairytale', threshold: 2500, gradient: 'from-yellow-500 via-amber-400 to-yellow-600', color: 'bg-yellow-500' },
+                      { name: 'Fashion', threshold: 5000, gradient: 'from-slate-200 via-gray-100 to-slate-300', color: 'bg-slate-300' },
                     ];
-                    const maxPoints = 3000;
+                    // Map points to bar % — labels are evenly spaced at 0%, 33%, 66%, 100%
+                    const segmentPercent = 100 / (ranks.length - 1);
                     const currentRankIndex = ranks.findIndex((r, i) => totalPoints >= r.threshold && (i === ranks.length - 1 || totalPoints < ranks[i + 1].threshold));
                     const safeRankIndex = currentRankIndex >= 0 ? currentRankIndex : 0;
+
+                    // Interpolate bar fill between evenly-spaced segments
+                    const getBarPercent = () => {
+                      if (safeRankIndex >= ranks.length - 1) return 100;
+                      const segStart = ranks[safeRankIndex].threshold;
+                      const segEnd = ranks[safeRankIndex + 1].threshold;
+                      const segProgress = (totalPoints - segStart) / (segEnd - segStart);
+                      return (safeRankIndex + segProgress) * segmentPercent;
+                    };
+                    const barPercent = Math.min(getBarPercent(), 100);
 
                     return (
                       <>
                         <div className="relative h-3 bg-gray-200 rounded-full overflow-hidden">
-                          <div className={`absolute h-full bg-gradient-to-r ${ranks[safeRankIndex].gradient} rounded-full transition-all`} style={{ width: `${Math.min((totalPoints / maxPoints) * 100, 100)}%` }} />
+                          <div className={`absolute h-full bg-gradient-to-r ${ranks[safeRankIndex].gradient} rounded-full transition-all`} style={{ width: `${barPercent}%` }} />
                         </div>
                         <div className="flex justify-between mt-2">
                           {ranks.map((rank) => (
@@ -249,34 +303,44 @@ export function CustomerProfile() {
           {isLoyaltyMember ? (
             <>
               <Card>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-base font-semibold text-gray-900">Rewards & Coupons</h2>
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" checked={showConsumedCoupons} onChange={(e) => setShowConsumedCoupons(e.target.checked)} className="w-4 h-4 text-gray-900 rounded border-gray-300 focus:ring-gray-900" />
-                    <span className="text-xs text-gray-500">Show used</span>
-                  </label>
+                <div className="mb-4">
+                  <h2 className="text-base font-semibold text-gray-900">Your Benefits</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">All benefits unlocked up to your {rankValue} tier</p>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {rewards.filter(r => showConsumedCoupons || !r.used).map((reward) => (
-                    <div key={reward.id} className={`border rounded-xl p-4 ${reward.used ? 'border-gray-200 bg-gray-50' : reward.consumable ? 'border-orange-200 bg-orange-50/50' : 'border-blue-200 bg-blue-50/50'}`}>
-                      <div className="flex items-start justify-between mb-1.5">
-                        <h3 className={`font-semibold text-sm ${reward.used ? 'text-gray-400' : reward.consumable ? 'text-orange-900' : 'text-blue-900'}`}>{reward.name}</h3>
-                        {!reward.used && <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${reward.consumable ? 'bg-orange-200 text-orange-800' : 'bg-blue-200 text-blue-800'}`}>{reward.consumable ? 'One-time' : 'Permanent'}</span>}
-                      </div>
-                      <p className={`text-xs mt-0.5 ${reward.used ? 'text-gray-400' : reward.consumable ? 'text-orange-700' : 'text-blue-700'}`}>{reward.description}</p>
-                      <div className="flex items-center gap-2 mt-2.5">
-                        {reward.used ? (
-                          <span className="text-[10px] bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Consumed</span>
-                        ) : (
-                          <>
-                            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Available</span>
-                            {reward.consumable && <Button onClick={() => handleUseReward(reward.id)} className="text-xs py-1 px-3 ml-auto">Use</Button>}
-                          </>
-                        )}
-                      </div>
+                {(() => {
+                  const tierOrder = ['Family', 'Flower', 'Fairytale', 'Fashion'];
+                  const tierDotColor: Record<string, string> = {
+                    Family: 'bg-orange-500',
+                    Flower: 'bg-slate-400',
+                    Fairytale: 'bg-yellow-500',
+                    Fashion: 'bg-gray-300',
+                  };
+                  const currentIdx = tierOrder.indexOf(rankValue);
+                  // Collect benefits from all achieved tiers, latest first, deduplicate by name (keep highest tier version)
+                  const seen = new Set<string>();
+                  const allBenefits: { name: string; description: string; tier: string }[] = [];
+                  for (let i = currentIdx; i >= 0; i--) {
+                    const tier = tierOrder[i];
+                    for (const b of TIER_BENEFITS[tier] || []) {
+                      if (!seen.has(b.name)) {
+                        seen.add(b.name);
+                        allBenefits.push({ ...b, tier });
+                      }
+                    }
+                  }
+
+                  return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {allBenefits.map((benefit, i) => (
+                        <div key={i} className="relative border border-gray-200 bg-gray-50 rounded-xl p-3">
+                          <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${tierDotColor[benefit.tier]}`} title={benefit.tier} />
+                          <h4 className="font-medium text-sm text-gray-900 mb-0.5 pr-5">{benefit.name}</h4>
+                          <p className="text-xs text-gray-500">{benefit.description}</p>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </Card>
 
               <Card title="Previous Purchases">
@@ -297,9 +361,17 @@ export function CustomerProfile() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-gray-900 text-sm">{activity.description}</p>
-                          {activity.date && <p className="text-xs text-gray-400">{new Date(activity.date).toLocaleDateString()}</p>}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {activity.date && <span className="text-xs text-gray-400">{new Date(activity.date).toLocaleDateString()}</span>}
+                            {activity.transactionNumber && (
+                              <>
+                                <span className="text-gray-300 text-xs">|</span>
+                                <span className="text-xs text-gray-400 font-mono">{activity.transactionNumber}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                        <p className={`font-semibold text-sm ${activity.points >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        <p className={`font-semibold text-sm shrink-0 ${activity.points >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {activity.points >= 0 ? '+' : ''}{activity.points} pts
                         </p>
                       </div>

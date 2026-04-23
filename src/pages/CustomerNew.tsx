@@ -8,7 +8,7 @@ import { Card } from '../components/Card';
 import { Toggle } from '../components/Toggle';
 import type { Child } from '../lib/types';
 import { customerApi, ApiError } from '../lib/api-client';
-import { toCreateRequest, toUpdateRequest, formatPhoneE164 } from '../lib/api-transforms';
+import { toCreateRequest, toUpdateRequest, formatPhoneE164, localeFromCountry } from '../lib/api-transforms';
 
 type ValidationStatus = 'idle' | 'checking' | 'valid' | 'invalid';
 
@@ -158,11 +158,11 @@ export function CustomerNew() {
     try {
       const token = await getValidToken();
       const customerData = { firstName, lastName, email, phone: phone ? `${phoneCountry} ${phone}` : undefined, dateOfBirth: dateOfBirth || undefined, loyaltyEnrollment, marketingConsent, privacyConsent: true, children: children.length > 0 ? children : undefined };
-      const createRequest = toCreateRequest(customerData);
+      const createRequest = toCreateRequest(customerData, localeFromCountry(country));
       if (session?.storeId) createRequest.store_id = session.storeId;
       await customerApi.createAccount(createRequest, token);
       if (address || city || postalCode || country !== 'Italy') {
-        const addressUpdate = toUpdateRequest({ address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined });
+        const addressUpdate = toUpdateRequest({ address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined }, localeFromCountry(country));
         await customerApi.updateAccount(email, addressUpdate, token);
       }
       setSubmitSuccess(true);
@@ -370,7 +370,7 @@ export function CustomerNew() {
             <div><p className="text-gray-400 text-xs">Store</p><p className="text-gray-900 font-medium">{session?.storeName}</p></div>
             <div><p className="text-gray-400 text-xs">Location</p><p className="text-gray-900 font-medium">{session?.storeAddress}</p></div>
             <div><p className="text-gray-400 text-xs">Store ID</p><p className="text-gray-900 font-medium">{session?.storeId}</p></div>
-            <div><p className="text-gray-400 text-xs">Sales Associate</p><p className="text-gray-900 font-medium">{session?.salesAssociateId}</p></div>
+            <div><p className="text-gray-400 text-xs">Sales Associate</p><p className="text-gray-900 font-medium">{session?.salesAssociateName}</p></div>
           </div>
         </Card>
 

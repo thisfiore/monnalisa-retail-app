@@ -243,8 +243,8 @@ const calculateTopCustomers = (): TopCustomer[] => {
 };
 
 const calculateRank = (totalSpent: number): 'Family' | 'Flower' | 'Fairytale' | 'Fashion' => {
-  if (totalSpent >= 2000) return 'Fashion';
-  if (totalSpent >= 1000) return 'Fairytale';
+  if (totalSpent >= 5000) return 'Fashion';
+  if (totalSpent >= 2500) return 'Fairytale';
   if (totalSpent >= 500) return 'Flower';
   return 'Family';
 };

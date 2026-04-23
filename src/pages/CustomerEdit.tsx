@@ -8,7 +8,7 @@ import { Card } from '../components/Card';
 import { Toggle } from '../components/Toggle';
 import type { Child } from '../lib/types';
 import { customerApi, ApiError } from '../lib/api-client';
-import { fromGetResponse, toUpdateRequest } from '../lib/api-transforms';
+import { fromGetResponse, toUpdateRequest, localeFromCountry } from '../lib/api-transforms';
 
 export function CustomerEdit() {
   const { email: emailParam } = useParams<{ email: string }>();
@@ -86,7 +86,7 @@ export function CustomerEdit() {
     setIsSubmitting(true);
     try {
       const token = await getValidToken();
-      const updateRequest = toUpdateRequest({ firstName, lastName, phone: phone ? `${phoneCountry} ${phone}` : undefined, dateOfBirth: dateOfBirth || undefined, address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined, loyaltyEnrollment, marketingConsent, children: children.length > 0 ? children : undefined });
+      const updateRequest = toUpdateRequest({ firstName, lastName, phone: phone ? `${phoneCountry} ${phone}` : undefined, dateOfBirth: dateOfBirth || undefined, address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined, loyaltyEnrollment, marketingConsent, children: children.length > 0 ? children : undefined }, localeFromCountry(country));
       if (session?.storeId) updateRequest.store_id = session.storeId;
       await customerApi.updateAccount(decodedEmail, updateRequest, token);
       setSubmitSuccess(true);
@@ -221,7 +221,7 @@ export function CustomerEdit() {
             <div><p className="text-gray-400 text-xs">Store</p><p className="text-gray-900 font-medium">{session?.storeName}</p></div>
             <div><p className="text-gray-400 text-xs">Location</p><p className="text-gray-900 font-medium">{session?.storeAddress}</p></div>
             <div><p className="text-gray-400 text-xs">Store ID</p><p className="text-gray-900 font-medium">{session?.storeId}</p></div>
-            <div><p className="text-gray-400 text-xs">Sales Associate</p><p className="text-gray-900 font-medium">{session?.salesAssociateId}</p></div>
+            <div><p className="text-gray-400 text-xs">Sales Associate</p><p className="text-gray-900 font-medium">{session?.salesAssociateName}</p></div>
           </div>
         </Card>
 
