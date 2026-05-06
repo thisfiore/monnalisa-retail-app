@@ -20,7 +20,7 @@ function segmentToCustomer(s: CustomerSegmentRecord, storeId: string): Customer 
     createdAt: s.CreatedDate ?? new Date().toISOString(),
     rank,
     loyaltyEnrollment: !!s.LoyaltyConsent__c,
-    loyaltyDoubleOptIn: false,
+    loyaltyDoubleOptIn: null,
     marketingConsent: !!s.MarketingConsent__c,
     privacyConsent: false,
     storeId,
@@ -28,11 +28,14 @@ function segmentToCustomer(s: CustomerSegmentRecord, storeId: string): Customer 
   };
 }
 
+type PointsState = number | 'loading' | 'error';
+
 export function Dashboard() {
   const { session, getValidToken } = useAuth();
   const [thisWeek, setThisWeek] = useState<CustomerSegmentRecord[]>([]);
   const [lastWeek, setLastWeek] = useState<CustomerSegmentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [pointsByEmail, setPointsByEmail] = useState<Record<string, PointsState>>({});
 
   useEffect(() => {
     if (!session) return;
@@ -52,6 +55,53 @@ export function Dashboard() {
       }
     })();
   }, [session, getValidToken]);
+
+  // Lazy enrichment: after the segment lists land, fetch TotalQualifyingPoints__c
+  // per customer via getAccount with field projection. Throttled to 3 concurrent
+  // calls so we don't hammer SF for stores with many weekly customers.
+  useEffect(() => {
+    if (isLoading) return;
+    const emails = Array.from(
+      new Set(
+        [...thisWeek, ...lastWeek]
+          .map((s) => s.EmailKey__c)
+          .filter((e): e is string => !!e),
+      ),
+    );
+    if (emails.length === 0) return;
+
+    setPointsByEmail((prev) => {
+      const next = { ...prev };
+      for (const e of emails) if (!(e in next)) next[e] = 'loading';
+      return next;
+    });
+
+    let cancelled = false;
+    let cursor = 0;
+    const concurrency = 3;
+
+    const worker = async () => {
+      while (!cancelled && cursor < emails.length) {
+        const email = emails[cursor++];
+        try {
+          const token = await getValidToken();
+          const resp = await customerApi.getAccount(
+            email,
+            token,
+            'EmailKey__c,TotalQualifyingPoints__c',
+          );
+          if (cancelled) return;
+          setPointsByEmail((prev) => ({ ...prev, [email]: resp.TotalQualifyingPoints__c ?? 0 }));
+        } catch {
+          if (cancelled) return;
+          setPointsByEmail((prev) => ({ ...prev, [email]: 'error' }));
+        }
+      }
+    };
+
+    void Promise.all(Array.from({ length: concurrency }, worker));
+    return () => { cancelled = true; };
+  }, [isLoading, thisWeek, lastWeek, getValidToken]);
 
   if (isLoading) {
     return (
@@ -101,6 +151,7 @@ export function Dashboard() {
                 <th className="text-left py-2.5 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider">Customer</th>
                 <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Email</th>
                 <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Date</th>
+                <th className="text-right py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Points</th>
                 <th className="text-center py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Rank</th>
                 <th className="text-center py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">Loyalty</th>
                 <th className="text-right py-2.5 px-6 text-xs font-medium text-gray-400 uppercase tracking-wider"></th>
@@ -114,6 +165,16 @@ export function Dashboard() {
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-500">{customer.email}</td>
                   <td className="py-3 px-4 text-sm text-gray-500">{new Date(customer.createdAt).toLocaleDateString()}</td>
+                  <td className="py-3 px-4 text-right text-sm">
+                    {(() => {
+                      const v = pointsByEmail[customer.email];
+                      if (v === undefined || v === 'loading') {
+                        return <span className="inline-block w-10 h-3 bg-gray-100 rounded animate-pulse" aria-label="Loading points" />;
+                      }
+                      if (v === 'error') return <span className="text-gray-300">—</span>;
+                      return <span className="font-medium text-gray-700 tabular-nums">{v}</span>;
+                    })()}
+                  </td>
                   <td className="py-3 px-4 text-center">
                     <span className={`inline-block px-2.5 py-0.5 rounded-lg text-xs font-semibold ${getRankColor(customer.rank)}`}>
                       {customer.rank || '\u2014'}

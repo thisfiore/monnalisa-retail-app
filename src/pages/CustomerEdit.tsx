@@ -8,7 +8,7 @@ import { Card } from '../components/Card';
 import { Toggle } from '../components/Toggle';
 import type { Child } from '../lib/types';
 import { customerApi, ApiError } from '../lib/api-client';
-import { fromGetResponse, toUpdateRequest, localeFromCountry } from '../lib/api-transforms';
+import { fromGetResponse, toUpdateRequest, localeFromCountry, LOCALE_OPTIONS } from '../lib/api-transforms';
 
 export function CustomerEdit() {
   const { email: emailParam } = useParams<{ email: string }>();
@@ -27,6 +27,8 @@ export function CustomerEdit() {
   const [city, setCity] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [country, setCountry] = useState('Italy');
+  const [preferredLocale, setPreferredLocale] = useState(localeFromCountry('Italy'));
+  const [localeManuallyEdited, setLocaleManuallyEdited] = useState(false);
   const [children, setChildren] = useState<Child[]>([]);
   const [loyaltyEnrollment, setLoyaltyEnrollment] = useState(false);
   const [marketingConsent, setMarketingConsent] = useState(false);
@@ -48,7 +50,9 @@ export function CustomerEdit() {
         setMarketingConsent(customerData.marketingConsent ?? false); setPrivacyConsent(true);
         setChildren(customerData.children ?? []); setAddress(customerData.address ?? '');
         setCity(customerData.city ?? ''); setPostalCode(customerData.postalCode ?? '');
-        setCountry(customerData.country ?? 'Italy');
+        const initialCountry = customerData.country ?? 'Italy';
+        setCountry(initialCountry);
+        setPreferredLocale(localeFromCountry(initialCountry));
         if (customerData.phone) {
           const phoneStr = customerData.phone;
           const knownPrefixes = ['+39', '+1', '+44', '+33', '+49', '+34', '+41', '+86', '+81'];
@@ -86,7 +90,7 @@ export function CustomerEdit() {
     setIsSubmitting(true);
     try {
       const token = await getValidToken();
-      const updateRequest = toUpdateRequest({ firstName, lastName, phone: phone ? `${phoneCountry} ${phone}` : undefined, dateOfBirth: dateOfBirth || undefined, address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined, loyaltyEnrollment, marketingConsent, children: children.length > 0 ? children : undefined }, localeFromCountry(country));
+      const updateRequest = toUpdateRequest({ firstName, lastName, phone: phone ? `${phoneCountry} ${phone}` : undefined, dateOfBirth: dateOfBirth || undefined, address: address || undefined, city: city || undefined, postalCode: postalCode || undefined, country: country || undefined, loyaltyEnrollment, marketingConsent, children: children.length > 0 ? children : undefined }, preferredLocale);
       if (session?.storeId) updateRequest.store_id = session.storeId;
       await customerApi.updateAccount(decodedEmail, updateRequest, token);
       setSubmitSuccess(true);
@@ -165,13 +169,36 @@ export function CustomerEdit() {
             <Input label="Date of Birth" type="date" value={dateOfBirth} onChange={(e) => setDateOfBirth(e.target.value)} error={errors.dateOfBirth} />
           </div>
           <div className="mt-4"><Input label="Address" value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Street address" /></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             <Input label="City" value={city} onChange={(e) => setCity(e.target.value)} />
             <Input label="Postal Code" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">Country</label>
-              <select className={`w-full ${selectClass}`} value={country} onChange={(e) => setCountry(e.target.value)}>
+              <select
+                className={`w-full ${selectClass}`}
+                value={country}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setCountry(next);
+                  if (!localeManuallyEdited) setPreferredLocale(localeFromCountry(next));
+                }}
+              >
                 <option value="Italy">Italy</option><option value="France">France</option><option value="Germany">Germany</option><option value="Spain">Spain</option><option value="Switzerland">Switzerland</option><option value="United Kingdom">United Kingdom</option><option value="United States">United States</option><option value="China">China</option><option value="Japan">Japan</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-600 mb-1.5">
+                Preferred Language
+                {!localeManuallyEdited && <span className="ml-2 text-xs text-gray-400 font-normal">(from country)</span>}
+              </label>
+              <select
+                className={`w-full ${selectClass}`}
+                value={preferredLocale}
+                onChange={(e) => { setPreferredLocale(e.target.value); setLocaleManuallyEdited(true); }}
+              >
+                {LOCALE_OPTIONS.map((opt) => (
+                  <option key={opt.code} value={opt.code}>{opt.label} — {opt.code}</option>
+                ))}
               </select>
             </div>
           </div>

@@ -26,6 +26,21 @@ export function localeFromCountry(country: string | undefined): string {
   return COUNTRY_TO_LOCALE[country] ?? 'it_IT';
 }
 
+/** Locale codes the user can pick explicitly. Pattern: ^[a-z]{2}_[A-Z]{2}$ (BE-validated). */
+export const LOCALE_OPTIONS: ReadonlyArray<{ code: string; label: string }> = [
+  { code: 'it_IT', label: 'Italian (Italy)' },
+  { code: 'it_CH', label: 'Italian (Switzerland)' },
+  { code: 'en_US', label: 'English (US)' },
+  { code: 'en_GB', label: 'English (UK)' },
+  { code: 'fr_FR', label: 'French (France)' },
+  { code: 'fr_CH', label: 'French (Switzerland)' },
+  { code: 'de_DE', label: 'German (Germany)' },
+  { code: 'de_CH', label: 'German (Switzerland)' },
+  { code: 'es_ES', label: 'Spanish (Spain)' },
+  { code: 'zh_CN', label: 'Chinese (China)' },
+  { code: 'ja_JP', label: 'Japanese (Japan)' },
+];
+
 /**
  * Strip all whitespace and non-digit characters except leading '+'.
  * Input:  "+39 333 123 1231"  →  "+393331231231"
@@ -215,7 +230,7 @@ export function fromGetResponse(
     children: children.length > 0 ? children : undefined,
     marketingConsent: response.MarketingConsent__c ?? false,
     loyaltyEnrollment: response.LoyaltyConsent__c ?? false,
-    loyaltyDoubleOptIn: response.LoyaltyDoubleOptIn__c ?? false,
+    loyaltyDoubleOptIn: response.LoyaltyDoubleOptIn__c ?? null,
     rank: mapTierToRank(response.LoyaltyTier__c),
   };
 }

@@ -178,7 +178,7 @@ export function CustomerProfile() {
 
             {isLoyaltyMember ? (
               <div className="mt-6 pt-6 border-t border-gray-200 space-y-5">
-                {customer.loyaltyDoubleOptIn === false && (
+                {customer.loyaltyDoubleOptIn === false && !customer.rank && totalPoints === 0 && (
                   <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
                     <p className="text-amber-800 text-sm font-medium">Opt-in pending verification</p>
                     <p className="text-amber-600 text-xs mt-0.5">Double opt-in email sent</p>

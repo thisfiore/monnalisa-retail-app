@@ -38,7 +38,7 @@ export type Customer = {
   country?: string;
   children?: Child[];
   loyaltyEnrollment: boolean;
-  loyaltyDoubleOptIn: boolean;
+  loyaltyDoubleOptIn: boolean | null;
   marketingConsent: boolean;
   privacyConsent: boolean;
   preferences?: CustomerPreferences;
