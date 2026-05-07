@@ -55,10 +55,10 @@ export async function firebaseSignIn(
  * Decode the payload of a Firebase ID token (JWT) and extract the Salesforce
  * Store__c record ID from the user's custom claim.
  *
- * BE sets a custom claim whose value is a JSON object containing `store_id`
- * (e.g. the claim value is `{"store_id": "a0W0E000004p9WdUAI"}`). Firebase may
- * expose custom claims either as parsed objects or as JSON strings, so we scan
- * all top-level claims and accept whichever shape contains `store_id`.
+ * The BE may expose `store_id` in three observed shapes:
+ *   1. Top-level string claim:  payload.store_id = "a0W..."
+ *   2. Nested object claim:     payload.<some_key> = { store_id: "a0W..." }
+ *   3. Nested JSON-string claim: payload.<some_key> = '{"store_id":"a0W..."}'
  *
  * Returns null if no such claim is found.
  */
@@ -69,6 +69,10 @@ export function extractStoreIdFromToken(idToken: string): string | null {
     const base64 = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
     const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
     const payload = JSON.parse(atob(padded));
+
+    if (typeof payload?.store_id === 'string' && payload.store_id) {
+      return payload.store_id;
+    }
 
     for (const value of Object.values(payload)) {
       if (typeof value === 'string') {
