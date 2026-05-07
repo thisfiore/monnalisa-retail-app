@@ -5,17 +5,24 @@ import { firebaseSignIn, firebaseRefreshToken, extractStoreIdFromToken } from '.
 import { storeApi } from './api-client';
 import type { StoreRecord } from './api-types';
 
-// Fallback Salesforce Store__c Id used only if the authenticated user has no
-// store_id custom claim (pre-migration accounts, misconfigured users).
-const FALLBACK_STORE_ID = 'a0W0E000004p9WdUAI';
+// Dev-only fallback Salesforce Store__c Id used when the authenticated user
+// has no store_id custom claim. In production we refuse to log in instead, to
+// avoid silently associating the operator with the wrong store.
+const FALLBACK_STORE_ID_DEV = 'a0W0E000004p9WdUAI';
+
+const MISSING_CLAIM_MESSAGE =
+  'Your account is not configured — please contact your administrator.';
 
 function resolveStoreId(idToken: string): string {
   const fromClaim = extractStoreIdFromToken(idToken);
   if (fromClaim) return fromClaim;
+  if (import.meta.env.PROD) {
+    throw new Error(MISSING_CLAIM_MESSAGE);
+  }
   console.warn(
-    '[auth] No store_id custom claim on Firebase user; using fallback. Ask BE to set the claim for this account.',
+    '[auth] No store_id custom claim on Firebase user; using dev fallback. Ask BE to set the claim for this account.',
   );
-  return FALLBACK_STORE_ID;
+  return FALLBACK_STORE_ID_DEV;
 }
 
 async function fetchStoreDetails(storeId: string, idToken: string): Promise<StoreRecord | null> {

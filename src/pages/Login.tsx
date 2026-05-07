@@ -6,8 +6,8 @@ import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 
 export function Login() {
-  const [email, setEmail] = useState('storemanager1@monnalisa.com');
-  const [password, setPassword] = useState('zW~]@sD4feIAN#I#36y@');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -27,14 +27,6 @@ export function Login() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleDemoLogin = () => {
-    setEmail('storemanager1@monnalisa.com');
-    setPassword('zW~]@sD4feIAN#I#36y@');
-    setTimeout(() => {
-      (document.getElementById('login-form') as HTMLFormElement | null)?.requestSubmit();
-    }, 100);
   };
 
   return (
@@ -80,28 +72,10 @@ export function Login() {
               </div>
             )}
 
-            <div className="flex gap-2 pt-1">
-              <Button type="submit" className="flex-1" isLoading={isLoading}>
-                Sign In
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleDemoLogin}
-                disabled={isLoading}
-              >
-                Demo
-              </Button>
-            </div>
+            <Button type="submit" className="w-full" isLoading={isLoading}>
+              Sign In
+            </Button>
           </form>
-
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <p className="text-xs text-gray-400 text-center">
-              Demo credentials pre-filled
-              <br />
-              <span className="font-mono text-[11px] text-gray-500">storemanager1@monnalisa.com</span>
-            </p>
-          </div>
         </div>
       </div>
     </div>
