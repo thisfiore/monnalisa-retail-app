@@ -9,6 +9,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/((?!proxy|health).+)",
+      "destination": "/api/proxy?_p=$1"
+    },
+    {
       "source": "/((?!api/|assets/).*)",
       "destination": "/index.html"
     }
