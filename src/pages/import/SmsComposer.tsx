@@ -8,7 +8,6 @@ import {
   smsLangForLocale,
   smsLength,
   SMS_LANGS,
-  NAME_PLACEHOLDER,
   type SmsLang,
 } from '../../lib/import/sms-message';
 import { personaliseSmsBody } from '../../lib/import/openai-sms';
@@ -19,6 +18,12 @@ import {
   type SmsRequest,
 } from '../../lib/import/sms-send';
 import type { RecoveryLink, StagingCustomer } from '../../lib/import/types';
+
+const LANG_LABEL = Object.fromEntries(SMS_LANGS.map((l) => [l.code, l.label])) as Record<
+  SmsLang,
+  string
+>;
+const langLabel = (code: SmsLang): string => LANG_LABEL[code];
 
 type SmsComposerProps = {
   open: boolean;
@@ -40,10 +45,35 @@ export function SmsComposer({ open, recipients, getToken, onClose, onSent }: Sms
   );
   const excludedCount = recipients.length - eligible.length;
 
+  // Messages are auto-localized per recipient from their resolved locale — no
+  // manual language choice. In bulk a single send can span several languages.
+  const langBreakdown = useMemo(() => {
+    const counts = new Map<SmsLang, number>();
+    for (const r of eligible) {
+      const l = smsLangForLocale(r.normalized.locale);
+      counts.set(l, (counts.get(l) ?? 0) + 1);
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipientKey]);
+
+  // One example recipient per distinct language, for the preview.
+  const previews = useMemo(() => {
+    const seen = new Set<SmsLang>();
+    const out: { lang: SmsLang; rec: StagingCustomer }[] = [];
+    for (const r of eligible) {
+      const l = smsLangForLocale(r.normalized.locale);
+      if (!seen.has(l)) {
+        seen.add(l);
+        out.push({ lang: l, rec: r });
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recipientKey]);
+
   const [links, setLinks] = useState<Record<string, RecoveryLink>>({});
   const [linksLoading, setLinksLoading] = useState(true);
-  const [lang, setLang] = useState<SmsLang>('it');
-  const [template, setTemplate] = useState(''); // bulk body, keeps {name}
   const [singleBody, setSingleBody] = useState(''); // single body, name baked in
   const [overrides, setOverrides] = useState<Record<string, string>>({}); // AI per-recipient
   const [aiBusy, setAiBusy] = useState(false);
@@ -55,11 +85,9 @@ export function SmsComposer({ open, recipients, getToken, onClose, onSent }: Sms
 
   useEffect(() => {
     if (!open) return;
-    const firstName = recipients[0]?.normalized.firstName;
-    const initialLang = mode === 'single' ? smsLangForLocale(recipients[0]?.normalized.locale) : 'it';
-    setLang(initialLang);
-    setTemplate(defaultSmsBody(initialLang));
-    setSingleBody(renderSmsBody(defaultSmsBody(initialLang), firstName));
+    const first = recipients[0]?.normalized;
+    const firstLang = smsLangForLocale(first?.locale);
+    setSingleBody(renderSmsBody(defaultSmsBody(firstLang), first?.firstName));
     setOverrides({});
     setOutcomes(null);
     setAiError('');
@@ -80,16 +108,15 @@ export function SmsComposer({ open, recipients, getToken, onClose, onSent }: Sms
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, recipientKey]);
 
-  function changeLang(next: SmsLang) {
-    setLang(next);
-    setTemplate(defaultSmsBody(next));
-    setSingleBody(renderSmsBody(defaultSmsBody(next), recipients[0]?.normalized.firstName));
-    setOverrides({});
+  /** The standard brand body in the recipient's own language, name rendered. */
+  function localizedStandardBody(rec: StagingCustomer): string {
+    const body = defaultSmsBody(smsLangForLocale(rec.normalized.locale));
+    return renderSmsBody(body, rec.normalized.firstName);
   }
 
   function bodyNoLink(rec: StagingCustomer): string {
     if (mode === 'single') return singleBody;
-    return overrides[rec.id] ?? renderSmsBody(template, rec.normalized.firstName);
+    return overrides[rec.id] ?? localizedStandardBody(rec);
   }
 
   function finalBody(rec: StagingCustomer): string {
@@ -165,6 +192,7 @@ export function SmsComposer({ open, recipients, getToken, onClose, onSent }: Sms
   if (!open) return null;
 
   const dry = smsDryRun();
+  const singleLang = smsLangForLocale(recipients[0]?.normalized.locale);
   const sample = eligible[0] ? finalBody(eligible[0]) : '';
   const len = sample ? smsLength(sample) : null;
 
@@ -245,69 +273,73 @@ export function SmsComposer({ open, recipients, getToken, onClose, onSent }: Sms
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between gap-3">
-              <label className="text-sm font-medium text-gray-600">
-                Language
-                {mode === 'single' && (
-                  <span className="ml-1 font-normal text-gray-400">
-                    (from locale {recipients[0]?.normalized.locale || '—'})
-                  </span>
-                )}
-              </label>
-              <select
-                value={lang}
-                onChange={(e) => changeLang(e.target.value as SmsLang)}
-                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-gray-900"
-              >
-                {SMS_LANGS.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-gray-600">Message</label>
-                <Button
-                  variant="outline"
-                  onClick={mode === 'single' ? personaliseSingle : personaliseEach}
-                  isLoading={aiBusy}
-                  className="text-xs py-1 px-2"
-                >
-                  {mode === 'single' ? '✨ Personalise with AI' : '✨ Personalise each with AI'}
-                </Button>
-              </div>
-              {mode === 'single' ? (
+            {mode === 'single' ? (
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-sm font-medium text-gray-600">
+                    Message
+                    <span className="ml-1 font-normal text-gray-400">
+                      ({langLabel(singleLang)} · from locale {recipients[0]?.normalized.locale || '—'})
+                    </span>
+                  </label>
+                  <Button
+                    variant="outline"
+                    onClick={personaliseSingle}
+                    isLoading={aiBusy}
+                    className="text-xs py-1 px-2"
+                  >
+                    ✨ Personalise with AI
+                  </Button>
+                </div>
                 <textarea
                   value={singleBody}
                   onChange={(e) => setSingleBody(e.target.value)}
                   rows={3}
                   className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
                 />
-              ) : (
-                <>
-                  <textarea
-                    value={template}
-                    onChange={(e) => setTemplate(e.target.value)}
-                    rows={3}
-                    className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-gray-900"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">
-                    Use <code className="font-mono">{NAME_PLACEHOLDER}</code> for the first name.
-                    {Object.keys(overrides).length > 0 &&
-                      ` ${Object.keys(overrides).length} recipient(s) have an AI-personalised message that overrides this template.`}
+                {aiError && <p className="text-xs text-red-600 mt-1">AI failed: {aiError}</p>}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3">
+                  <p className="text-sm font-medium text-gray-900">
+                    Each recipient receives the standard message in their own language.
                   </p>
-                </>
-              )}
-              {aiProgress && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Personalising… {aiProgress.done}/{aiProgress.total}
-                </p>
-              )}
-              {aiError && <p className="text-xs text-red-600 mt-1">AI failed: {aiError}</p>}
-            </div>
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {langBreakdown.map(([code, count]) => (
+                      <span
+                        key={code}
+                        className="px-2 py-0.5 rounded-md bg-white border border-gray-200 text-xs text-gray-600"
+                      >
+                        {langLabel(code)} · {count}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs text-gray-400">
+                    {Object.keys(overrides).length > 0
+                      ? `${Object.keys(overrides).length} recipient(s) AI-personalised (overrides the standard text).`
+                      : 'Optional: tailor each message with AI.'}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={personaliseEach}
+                    isLoading={aiBusy}
+                    className="text-xs py-1 px-2 shrink-0"
+                  >
+                    ✨ Personalise each with AI
+                  </Button>
+                </div>
+                {aiError && <p className="text-xs text-red-600">AI failed: {aiError}</p>}
+              </div>
+            )}
+
+            {aiProgress && (
+              <p className="text-xs text-gray-500">
+                Personalising… {aiProgress.done}/{aiProgress.total}
+              </p>
+            )}
 
             {len && (
               <p className="text-xs text-gray-400">
@@ -319,11 +351,30 @@ export function SmsComposer({ open, recipients, getToken, onClose, onSent }: Sms
 
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
-                Preview{mode === 'bulk' ? ` (${eligible[0]?.normalized.firstName || 'first recipient'})` : ''}
+                Preview
               </p>
-              <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-800 whitespace-pre-line break-words">
-                {linksLoading ? 'Preparing link…' : sample}
-              </div>
+              {linksLoading ? (
+                <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-500">
+                  Preparing link…
+                </div>
+              ) : mode === 'single' ? (
+                <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-800 whitespace-pre-line break-words">
+                  {sample}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {previews.map(({ lang: pl, rec }) => (
+                    <div key={pl}>
+                      <p className="text-[11px] text-gray-400 mb-0.5">
+                        {langLabel(pl)} · e.g. {rec.normalized.firstName || 'recipient'}
+                      </p>
+                      <div className="rounded-xl bg-gray-50 border border-gray-200 px-4 py-3 text-sm text-gray-800 whitespace-pre-line break-words">
+                        {finalBody(rec)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {sendError && (

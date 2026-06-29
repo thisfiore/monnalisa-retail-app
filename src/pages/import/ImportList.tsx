@@ -4,8 +4,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../lib/auth';
 import { listImportsForStore, countByStatus } from '../../lib/import/staging-db';
-import { activeRecoveryBackend } from '../../lib/import/recovery-store';
-import { moveToBackend, recoverFromBackend, type SyncProgress } from '../../lib/import/staging-sync';
+import { ensureHydrated } from '../../lib/import/hydrate';
 import type { ImportRecord, StagingStatus } from '../../lib/import/types';
 import { badgeColor } from './badge';
 
@@ -28,59 +27,29 @@ export function ImportList() {
   const { session, getValidToken } = useAuth();
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [syncing, setSyncing] = useState<'push' | 'pull' | null>(null);
-  const [syncMsg, setSyncMsg] = useState('');
-  const durable = activeRecoveryBackend() !== 'local';
-
-  async function reload() {
-    if (!session) return;
-    const imports = await listImportsForStore(session.storeId);
-    const withCounts = await Promise.all(
-      imports.map(async (rec) => ({ rec, counts: await countByStatus(session.storeId, rec.id) })),
-    );
-    setRows(withCounts);
-  }
+  const [hydrateError, setHydrateError] = useState('');
 
   useEffect(() => {
     if (!session) return;
     (async () => {
-      await reload();
+      // Pull the customers system from Mongo into the local cache (http mode).
+      try {
+        await ensureHydrated(getValidToken);
+      } catch (e) {
+        setHydrateError(e instanceof Error ? e.message : String(e));
+      }
+      const imports = await listImportsForStore(session.storeId);
+      const withCounts = await Promise.all(
+        imports.map(async (rec) => ({
+          rec,
+          counts: await countByStatus(session.storeId, rec.id),
+        })),
+      );
+      setRows(withCounts);
       setIsLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
-
-  async function handleMoveToMongo() {
-    if (!session) return;
-    setSyncing('push');
-    setSyncMsg('Pushing…');
-    try {
-      const r = await moveToBackend(session.storeId, getValidToken, (p: SyncProgress) =>
-        setSyncMsg(`Pushing ${p.phase}: ${p.done}/${p.total}`),
-      );
-      setSyncMsg(`✓ Moved ${r.imports} import(s) and ${r.customers} customers to Mongo.`);
-    } catch (e) {
-      setSyncMsg(`Push failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setSyncing(null);
-    }
-  }
-
-  async function handleRecover() {
-    setSyncing('pull');
-    setSyncMsg('Recovering…');
-    try {
-      const r = await recoverFromBackend(getValidToken, (p: SyncProgress) =>
-        setSyncMsg(`Recovering ${p.phase}: ${p.done}/${p.total}`),
-      );
-      await reload();
-      setSyncMsg(`✓ Recovered ${r.imports} import(s) and ${r.customers} customers from Mongo.`);
-    } catch (e) {
-      setSyncMsg(`Recover failed: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      setSyncing(null);
-    }
-  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -92,16 +61,6 @@ export function ImportList() {
           </p>
         </div>
         <div className="flex gap-2">
-          {durable && (
-            <>
-              <Button variant="outline" onClick={handleMoveToMongo} isLoading={syncing === 'push'} disabled={!!syncing}>
-                ⤴ Move to Mongo
-              </Button>
-              <Button variant="outline" onClick={handleRecover} isLoading={syncing === 'pull'} disabled={!!syncing}>
-                ⤓ Recover from Mongo
-              </Button>
-            </>
-          )}
           <Link to="/import-docs">
             <Button variant="outline">How it works</Button>
           </Link>
@@ -111,14 +70,14 @@ export function ImportList() {
         </div>
       </div>
 
-      {durable && syncMsg && (
-        <div className="mb-4 rounded-xl bg-gray-50 border border-gray-200 px-4 py-2.5 text-sm text-gray-700">
-          {syncMsg}
+      {hydrateError && (
+        <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
+          Couldn’t load customers from the backend: {hydrateError}
         </div>
       )}
 
       {isLoading ? (
-        <p className="text-gray-400 text-sm">Loading…</p>
+        <p className="text-gray-400 text-sm">Loading customers…</p>
       ) : rows.length === 0 ? (
         <Card>
           <p className="text-gray-500 text-sm">

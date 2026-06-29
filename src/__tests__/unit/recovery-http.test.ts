@@ -1,6 +1,22 @@
 import { describe, it, expect } from 'vitest';
 import { docToLink } from '../../lib/import/recovery-backend/http-store.ts';
 import { computeFunnel, recoveryState } from '../../lib/import/outreach-stats.ts';
+import { generateRecoveryToken } from '../../lib/import/recovery-links.ts';
+
+describe('generateRecoveryToken', () => {
+  it('is short, URL-safe, and unique', () => {
+    const t = generateRecoveryToken();
+    expect(t).toHaveLength(12);
+    expect(t).toMatch(/^[A-Za-z0-9_-]+$/); // url-safe, no chars needing encoding
+    expect(t.length).toBeLessThan(36); // shorter than a UUID
+    const many = new Set(Array.from({ length: 5000 }, () => generateRecoveryToken()));
+    expect(many.size).toBe(5000); // no collisions across 5k
+  });
+
+  it('respects a custom length', () => {
+    expect(generateRecoveryToken(16)).toHaveLength(16);
+  });
+});
 
 describe('docToLink (backend doc → frontend RecoveryLink)', () => {
   it('maps a full doc, flattening submission timestamps and parsing ISO dates', () => {

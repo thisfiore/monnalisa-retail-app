@@ -533,7 +533,7 @@ Do NOT invent data. Explain any locale change. Flag "hopeless" only if there's n
               <p className="text-sm font-semibold text-gray-900 mb-1">Step 1 · Contact &amp; consent</p>
               <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
                 <li>Confirm / add email + mobile (country-prefix picker)</li>
-                <li>Join the Monnalisa Family (loyalty) — on by default</li>
+                <li>Join Monnalisa Fun (loyalty) — on by default</li>
                 <li>Marketing updates — off by default</li>
                 <li>Privacy policy — required to continue</li>
               </ul>
@@ -567,7 +567,7 @@ Do NOT invent data. Explain any locale change. Flag "hopeless" only if there's n
                 detail to keep your Monnalisa profile up to date.”
               </p>
               <p className="text-gray-700">
-                <span className="font-semibold">Loyalty:</span> “Join the Monnalisa Family — earn rewards on
+                <span className="font-semibold">Loyalty:</span> “Join Monnalisa Fun — earn rewards on
                 every purchase, plus members-only perks for you and your children.”
               </p>
               <p className="text-gray-700">
@@ -576,7 +576,7 @@ Do NOT invent data. Explain any locale change. Flag "hopeless" only if there's n
               </p>
               <p className="text-gray-700">
                 <span className="font-semibold">Thank-you:</span> “Thank you, {'{name}'}! Your details are
-                saved. Welcome to the Monnalisa Family — we’ll be in touch with rewards and news made for you.”
+                saved. Welcome to Monnalisa Fun — we’ll be in touch with rewards and news made for you.”
               </p>
               <p className="text-gray-500 text-xs pt-1">
                 Expired / used links show: “This link is no longer valid — please contact your Monnalisa

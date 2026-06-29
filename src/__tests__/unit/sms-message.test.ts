@@ -27,9 +27,12 @@ describe('smsLangForLocale', () => {
 });
 
 describe('default body + rendering', () => {
-  it('every default body carries the {name} placeholder', () => {
+  it('every default body uses the official Monnalisa Fun brand copy', () => {
     for (const lang of ['it', 'en', 'fr', 'de', 'es'] as const) {
-      expect(defaultSmsBody(lang)).toContain(NAME_PLACEHOLDER);
+      const body = defaultSmsBody(lang);
+      expect(body).toContain('Monnalisa Fun');
+      // The link is appended by composeSms, so the body must never carry it.
+      expect(body).not.toContain('http');
     }
   });
 

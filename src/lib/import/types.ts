@@ -150,7 +150,7 @@ export type StagingCustomer = {
  * store in Phase 2 so SMS links can resolve cross-device.
  */
 export type RecoveryLink = {
-  token: string; // crypto.randomUUID()
+  token: string; // short URL-safe token (generateRecoveryToken) — keeps the SMS link short
   customerId: string; // staging id `${storeId}:${customerNo}`
   storeId: string;
   importId: string;

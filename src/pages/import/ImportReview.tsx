@@ -4,8 +4,10 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../lib/auth';
 import { getImport, listCustomers } from '../../lib/import/staging-db';
+import { ensureHydrated } from '../../lib/import/hydrate';
 import type { ImportRecord, StagingCustomer, StagingStatus } from '../../lib/import/types';
 import { E164_REGEX } from '../../lib/import/recovery';
+import { isWithinMonths, LAST_SALE_MONTH_RANGES } from '../../lib/import/last-sale';
 import { SmsComposer } from './SmsComposer';
 import { badgeColor } from './badge';
 
@@ -18,6 +20,7 @@ export function ImportReview() {
   const [importRec, setImportRec] = useState<ImportRecord | null>(null);
   const [customers, setCustomers] = useState<StagingCustomer[]>([]);
   const [filter, setFilter] = useState<StagingStatus | 'all'>('review');
+  const [lastSaleMonths, setLastSaleMonths] = useState<number | 'all'>('all');
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -35,12 +38,14 @@ export function ImportReview() {
   useEffect(() => {
     if (!session || !importId) return;
     (async () => {
+      await ensureHydrated(getValidToken).catch(() => {}); // populate local cache from Mongo (http mode)
       const rec = await getImport(importId);
       setImportRec(rec ?? null);
       const list = await listCustomers({ storeId: session.storeId, importId });
       setCustomers(list);
       setIsLoading(false);
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, importId]);
 
   const counts = useMemo(() => {
@@ -52,6 +57,9 @@ export function ImportReview() {
   const filtered = useMemo(() => {
     let rows = customers;
     if (filter !== 'all') rows = rows.filter((r) => r.status === filter);
+    if (lastSaleMonths !== 'all') {
+      rows = rows.filter((r) => isWithinMonths(r.normalized.customerLastSale, lastSaleMonths));
+    }
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       rows = rows.filter((r) => {
@@ -69,7 +77,7 @@ export function ImportReview() {
       });
     }
     return rows.slice(0, 500); // cap render for prototype
-  }, [customers, filter, search]);
+  }, [customers, filter, lastSaleMonths, search]);
 
   // Only records with a sendable phone can be texted.
   const selectableInView = useMemo(
@@ -142,6 +150,23 @@ export function ImportReview() {
             />
           ))}
           <div className="flex-1" />
+          <label className="flex items-center gap-1.5 text-xs text-gray-500">
+            Last purchase
+            <select
+              value={lastSaleMonths}
+              onChange={(e) =>
+                setLastSaleMonths(e.target.value === 'all' ? 'all' : Number(e.target.value))
+              }
+              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-900 cursor-pointer"
+            >
+              <option value="all">Any time</option>
+              {LAST_SALE_MONTH_RANGES.map((m) => (
+                <option key={m} value={m}>
+                  ≤ {m} {m === 1 ? 'month' : 'months'}
+                </option>
+              ))}
+            </select>
+          </label>
           <input
             type="search"
             placeholder="Search name / email / phone / id…"
@@ -178,6 +203,9 @@ export function ImportReview() {
                 </th>
                 <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
                   CSV Store
+                </th>
+                <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  Last purchase
                 </th>
                 <th className="text-left py-2.5 px-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
                   Status
@@ -219,6 +247,9 @@ export function ImportReview() {
                     )}
                   </td>
                   <td className="py-2.5 px-4 text-gray-500 text-xs">{c.normalized.csvStore}</td>
+                  <td className="py-2.5 px-4 text-gray-600 text-xs whitespace-nowrap">
+                    {c.normalized.customerLastSale || <span className="text-gray-300">—</span>}
+                  </td>
                   <td className="py-2.5 px-4">
                     <span
                       className={`px-2 py-0.5 rounded-md text-xs font-medium ${badgeColor(c.status)}`}
@@ -239,7 +270,7 @@ export function ImportReview() {
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="py-8 text-center text-gray-400 text-sm">
+                  <td colSpan={8} className="py-8 text-center text-gray-400 text-sm">
                     No rows match.
                   </td>
                 </tr>

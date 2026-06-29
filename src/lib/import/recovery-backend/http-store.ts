@@ -7,7 +7,7 @@
  * is created server-side on the first `publish`/`recordSent` (which is why it
  * resolves on the customer's phone after the SMS goes out).
  */
-import { RECOVERY_LINK_TTL_MS } from '../recovery-links';
+import { RECOVERY_LINK_TTL_MS, generateRecoveryToken } from '../recovery-links';
 import { markLinkSent } from '../sms-send';
 import type { RecoveryLink, StagingCustomer } from '../types';
 import type { RecoveryStore } from '../recovery-store';
@@ -89,7 +89,7 @@ export function createHttpRecoveryStore(deps: { getToken: () => Promise<string> 
       if (existing && existing.expiresAt > now && existing.status !== 'expired') return existing;
       // Mint the token now; the server doc is created on publish()/recordSent().
       return {
-        token: crypto.randomUUID(),
+        token: generateRecoveryToken(),
         customerId: rec.id,
         storeId: rec.storeId,
         importId: rec.importId,

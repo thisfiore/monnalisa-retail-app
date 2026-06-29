@@ -5,6 +5,7 @@ import { Button } from '../../components/Button';
 import { useAuth } from '../../lib/auth';
 import { getImport, listCustomers } from '../../lib/import/staging-db';
 import { getRecoveryStore } from '../../lib/import/recovery-store';
+import { ensureHydrated } from '../../lib/import/hydrate';
 import {
   computeFunnel,
   recoveryState,
@@ -38,6 +39,7 @@ export function OutreachDashboard() {
   useEffect(() => {
     if (!session || !importId) return;
     (async () => {
+      await ensureHydrated(getValidToken).catch(() => {}); // local cache from Mongo (http mode)
       const store = getRecoveryStore({ getToken: getValidToken });
       const [rec, linkList, customers] = await Promise.all([
         getImport(importId),

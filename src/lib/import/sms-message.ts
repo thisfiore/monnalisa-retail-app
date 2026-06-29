@@ -35,13 +35,19 @@ export function smsLangForLocale(locale: string | undefined): SmsLang {
   return LANG_BY_PREFIX[prefix] ?? 'en';
 }
 
-/** Default outreach body per language — keeps {name}; the link is appended later. */
+/**
+ * Default outreach body per language — official "Monnalisa Fun" brand copy.
+ * IT is the source text supplied by the brand; the others are faithful
+ * translations. The body ends on "Scopri di più →" and the recovery link is
+ * appended on the next line by composeSms(). {name} is still supported for
+ * manager-edited templates but the brand default does not use it.
+ */
 const DEFAULT_BODIES: Record<SmsLang, string> = {
-  it: `Ciao ${NAME_PLACEHOLDER}, è Monnalisa. Completa i tuoi dati e unisciti al nostro programma fedeltà:`,
-  en: `Hi ${NAME_PLACEHOLDER}, it's Monnalisa. Complete your details and join our loyalty programme:`,
-  fr: `Bonjour ${NAME_PLACEHOLDER}, c'est Monnalisa. Complétez vos informations et rejoignez notre programme de fidélité :`,
-  de: `Hallo ${NAME_PLACEHOLDER}, hier ist Monnalisa. Vervollständigen Sie Ihre Daten und treten Sie unserem Treueprogramm bei:`,
-  es: `Hola ${NAME_PLACEHOLDER}, somos Monnalisa. Completa tus datos y únete a nuestro programa de fidelidad:`,
+  it: `Entra in Monnalisa Fun! 💖 Il nostro nuovo programma loyalty ti aspetta: accedi a vantaggi esclusivi e a un mondo di sorprese pensato per te.\nScopri di più →`,
+  en: `Join Monnalisa Fun! 💖 Our new loyalty programme is waiting for you: unlock exclusive benefits and a world of surprises made just for you.\nDiscover more →`,
+  fr: `Rejoignez Monnalisa Fun ! 💖 Notre nouveau programme de fidélité vous attend : accédez à des avantages exclusifs et à un monde de surprises pensé pour vous.\nEn savoir plus →`,
+  de: `Willkommen bei Monnalisa Fun! 💖 Unser neues Treueprogramm wartet auf Sie: exklusive Vorteile und eine Welt voller Überraschungen, die für Sie gemacht ist.\nMehr erfahren →`,
+  es: `¡Entra en Monnalisa Fun! 💖 Nuestro nuevo programa de fidelidad te espera: accede a ventajas exclusivas y a un mundo de sorpresas pensado para ti.\nDescubre más →`,
 };
 
 export function defaultSmsBody(lang: SmsLang): string {

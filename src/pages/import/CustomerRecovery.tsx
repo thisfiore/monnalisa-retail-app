@@ -10,6 +10,12 @@ import {
   type RecoveryController,
   type RecoveryView,
 } from '../../lib/import/recovery-controller';
+import {
+  recoveryCopy,
+  RECOVERY_COPY,
+  PRIVACY_URL,
+  type RecoveryCopy,
+} from '../../lib/import/recovery-copy';
 
 const PHONE_PREFIXES = ['+39', '+1', '+44', '+33', '+49', '+34', '+41', '+86', '+81'];
 
@@ -44,12 +50,14 @@ export function CustomerRecovery() {
   if (stage === 'loading') {
     return (
       <Shell>
-        <p className="text-center text-gray-400 text-sm py-16">Loading…</p>
+        <p className="text-center text-gray-400 text-sm py-16">{RECOVERY_COPY.en.loading}</p>
       </Shell>
     );
   }
 
   if (stage === 'invalid' || !ctrl) {
+    // Locale is unknown without a record — fall back to English.
+    const c = RECOVERY_COPY.en;
     return (
       <Shell>
         <div className="text-center py-12">
@@ -58,17 +66,15 @@ export function CustomerRecovery() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10S6.477 1 12 1s10 4.477 10 10c0 1.61-.38 3.13-1.057 4.475M12 9v4m0 4h.01" />
             </svg>
           </div>
-          <h1 className="text-lg font-semibold text-gray-900">This link is no longer valid</h1>
-          <p className="text-sm text-gray-500 mt-2">
-            It may have expired or already been used. Please contact your Monnalisa store for a new
-            link.
-          </p>
+          <h1 className="text-lg font-semibold text-gray-900">{c.invalid.title}</h1>
+          <p className="text-sm text-gray-500 mt-2">{c.invalid.body}</p>
         </div>
       </Shell>
     );
   }
 
   const name = ctrl.view.firstName.trim();
+  const copy = recoveryCopy(ctrl.view.locale);
 
   if (stage === 'done') {
     return (
@@ -79,23 +85,21 @@ export function CustomerRecovery() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h1 className="text-xl font-bold text-gray-900">Thank you{name ? `, ${name}` : ''}!</h1>
-          <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
-            Your details are saved. Welcome to the Monnalisa Family — we'll be in touch with rewards
-            and news made for you.
-          </p>
+          <h1 className="text-xl font-bold text-gray-900">{copy.doneTitle(name)}</h1>
+          <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">{copy.doneBody}</p>
         </div>
       </Shell>
     );
   }
 
   if (stage === 'intro') {
-    return <Intro name={name} onStart={() => setStage('step1')} />;
+    return <Intro name={name} copy={copy} onStart={() => setStage('step1')} />;
   }
 
   return stage === 'step1' ? (
     <Step1
       view={ctrl.view}
+      copy={copy}
       onSubmit={async (input) => {
         await ctrl.submitStep1(input);
         setStage('step2');
@@ -104,6 +108,7 @@ export function CustomerRecovery() {
   ) : (
     <Step2
       view={ctrl.view}
+      copy={copy}
       onSave={async (children) => {
         await ctrl.submitChildren(children);
         setStage('done');
@@ -122,43 +127,28 @@ export function CustomerRecovery() {
  * Welcome landing the customer sees first. Sets the tone before the form:
  * a short video placeholder, the value of joining, then a single CTA into Step 1.
  */
-function Intro({ name, onStart }: { name: string; onStart: () => void }) {
+function Intro({
+  name,
+  copy,
+  onStart,
+}: {
+  name: string;
+  copy: RecoveryCopy;
+  onStart: () => void;
+}) {
+  const t = copy.intro;
   return (
     <Shell>
       <div className="text-center mb-6">
-        <p className="text-xs font-medium tracking-[0.18em] text-gray-400 uppercase">
-          Monnalisa Family
-        </p>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">
-          {name ? `Ciao ${name}` : 'Welcome'} 👋
-        </h1>
-        <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
-          A little world made for you and your children. Take a moment to discover it.
-        </p>
+        <p className="text-xs font-medium tracking-[0.18em] text-gray-400 uppercase">{t.eyebrow}</p>
+        <h1 className="text-2xl font-bold text-gray-900 mt-2">{t.greeting(name)} 💖</h1>
+        <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">{t.tagline}</p>
       </div>
 
-      <VideoPlaceholder />
+      <HeroImage />
 
       <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-5 space-y-4">
-        {(
-          [
-            {
-              icon: '🎁',
-              title: 'Rewards on every purchase',
-              text: 'Earn points in-store and online, plus members-only perks.',
-            },
-            {
-              icon: '✨',
-              title: 'Made for your little ones',
-              text: 'Tailored sizes, early access to new collections and birthday surprises.',
-            },
-            {
-              icon: '💌',
-              title: 'Personal invitations',
-              text: 'In-store events and previews, sent only to the Monnalisa Family.',
-            },
-          ] as const
-        ).map((b) => (
+        {t.benefits.map((b) => (
           <div key={b.title} className="flex items-start gap-3">
             <span className="text-xl leading-none mt-0.5">{b.icon}</span>
             <div>
@@ -170,12 +160,14 @@ function Intro({ name, onStart }: { name: string; onStart: () => void }) {
       </div>
 
       <p className="text-center text-xs text-gray-400 mt-5">
-        It only takes a minute — we'll just confirm a couple of details.
+        <a href={t.discoverMoreHref} target="_blank" rel="noreferrer" className="underline">
+          {t.discoverMore}
+        </a>
       </p>
 
       <StickyCta>
         <Button onClick={onStart} className="w-full">
-          Get started
+          {t.cta}
         </Button>
       </StickyCta>
     </Shell>
@@ -183,23 +175,18 @@ function Intro({ name, onStart }: { name: string; onStart: () => void }) {
 }
 
 /**
- * 16:9 placeholder for the welcome video. Swap the inner content for a real
- * <video>/embed once the asset is ready — keep the aspect ratio wrapper.
+ * Welcome hero. Shows the Monnalisa Fun campaign image for now; swap this for a
+ * <video>/embed once the welcome video is ready — keep the rounded wrapper.
  */
-function VideoPlaceholder() {
+function HeroImage() {
   return (
-    <div className="relative w-full overflow-hidden rounded-2xl border border-gray-200 bg-gradient-to-br from-gray-900 to-gray-700 aspect-video shadow-sm">
-      {/* TODO: replace with the Monnalisa Family welcome video */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-        <div className="w-14 h-14 rounded-full bg-white/90 flex items-center justify-center shadow-md">
-          <svg className="w-6 h-6 text-gray-900 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M8 5v14l11-7z" />
-          </svg>
-        </div>
-        <span className="text-xs font-medium tracking-wide text-white/80 uppercase">
-          Video coming soon
-        </span>
-      </div>
+    <div className="relative w-full overflow-hidden rounded-2xl border border-gray-200 bg-[#f0eeec] aspect-[4/3] shadow-sm">
+      <img
+        src="/recovery-hero.jpg"
+        alt="Monnalisa Fun"
+        className="absolute inset-0 h-full w-full object-cover"
+        loading="eager"
+      />
     </div>
   );
 }
@@ -208,11 +195,14 @@ function VideoPlaceholder() {
 
 function Step1({
   view,
+  copy,
   onSubmit,
 }: {
   view: RecoveryView;
+  copy: RecoveryCopy;
   onSubmit: (input: { email?: string; phone?: string; consent: Consent }) => Promise<void>;
 }) {
+  const t = copy.step1;
   const needsEmail = view.needsEmail;
   const needsPhone = view.needsPhone;
   const initialPhone = useMemo(() => splitPhone(view.phonePrefill || ''), [view.phonePrefill]);
@@ -239,22 +229,22 @@ function Step1({
     const phoneToSend = editingPhone && phone.trim() ? `${phonePrefix} ${phone.trim()}` : undefined;
 
     if (needsEmail && !emailToSend) {
-      return setError('Please enter a valid email address.');
+      return setError(t.errEmailRequired);
     }
     if (emailToSend && !EMAIL_REGEX.test(emailToSend)) {
-      return setError('That email address looks incorrect.');
+      return setError(t.errEmailInvalid);
     }
     if (needsPhone && !phoneToSend) {
-      return setError('Please enter your mobile number.');
+      return setError(t.errPhoneRequired);
     }
     if (!consent.privacy) {
-      return setError('Please accept the privacy policy to continue.');
+      return setError(t.errPrivacy);
     }
     setSaving(true);
     try {
       await onSubmit({ email: emailToSend, phone: phoneToSend, consent });
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong — please try again.');
+      setError(e instanceof Error ? e.message : t.errGeneric);
     } finally {
       setSaving(false);
     }
@@ -264,54 +254,50 @@ function Step1({
     <Shell>
       <Greeting
         name={view.firstName.trim()}
-        subtitle={
-          allConfirmed
-            ? 'Please confirm your details below — it only takes a moment.'
-            : "We're just missing one detail to keep your Monnalisa profile up to date."
-        }
+        greeting={copy.greeting}
+        subtitle={allConfirmed ? t.subtitleConfirm : t.subtitleMissing}
       />
 
       <div className="space-y-5">
         <div className="space-y-3">
           {emailConfirmed ? (
             <ConfirmedRow
-              label="Email"
+              label={t.emailLabel}
               value={view.emailHint ?? ''}
+              editLabel={t.editLabel}
               onEdit={() => setEditingEmail(true)}
             />
           ) : (
             <FieldGroup>
               <Input
-                label="Email"
+                label={t.emailLabel}
                 type="email"
                 inputMode="email"
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
+                placeholder={t.emailPlaceholder}
                 required={needsEmail}
                 error={
-                  email.trim() && !EMAIL_REGEX.test(email.trim()) ? 'Check this email' : undefined
+                  email.trim() && !EMAIL_REGEX.test(email.trim()) ? t.emailCheckInline : undefined
                 }
               />
-              {needsEmail && (
-                <p className="text-xs text-amber-600 mt-1">
-                  We don't have your email yet — please add it.
-                </p>
-              )}
+              {needsEmail && <p className="text-xs text-amber-600 mt-1">{t.emailMissingHint}</p>}
             </FieldGroup>
           )}
 
           {phoneConfirmed ? (
             <ConfirmedRow
-              label="Mobile number"
+              label={t.phoneLabel}
               value={view.phoneHint ?? ''}
+              editLabel={t.editLabel}
               onEdit={() => setEditingPhone(true)}
             />
           ) : (
             <FieldGroup>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">
-                Mobile number{needsPhone && <span className="text-red-500 ml-1">*</span>}
+                {t.phoneLabel}
+                {needsPhone && <span className="text-red-500 ml-1">*</span>}
               </label>
               <div className="flex gap-2">
                 <select
@@ -332,14 +318,10 @@ function Step1({
                   className="flex-1 px-3.5 py-2.5 border border-gray-300 rounded-xl bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="123 456 7890"
+                  placeholder={t.phonePlaceholder}
                 />
               </div>
-              {needsPhone && (
-                <p className="text-xs text-amber-600 mt-1">
-                  We don't have your number yet — please add it.
-                </p>
-              )}
+              {needsPhone && <p className="text-xs text-amber-600 mt-1">{t.phoneMissingHint}</p>}
             </FieldGroup>
           )}
         </div>
@@ -347,8 +329,8 @@ function Step1({
         <div className="rounded-2xl border border-gray-200 bg-white p-4 divide-y divide-gray-100">
           <div className="pb-4">
             <Toggle
-              label="Join the Monnalisa Family"
-              description="Earn rewards on every purchase, plus members-only perks for you and your children."
+              label={t.joinTitle}
+              description={t.joinDesc}
               checked={consent.loyalty}
               onChange={(v) => setConsent({ ...consent, loyalty: v })}
             />
@@ -356,22 +338,17 @@ function Step1({
 
           <div className="py-4">
             <Toggle
-              label="Keep me updated on my event invitations & loyalty opportunities"
-              description="Personal invitations to in-store events, early access to new collections, and birthday surprises for your little ones."
+              label={t.marketingTitle}
+              description={t.marketingDesc}
               checked={consent.marketing}
               onChange={(v) => setConsent({ ...consent, marketing: v })}
             />
             <p className="text-xs text-gray-400 mt-2 ml-14">
-              Includes occasional commercial communications — you can unsubscribe anytime. See our{' '}
-              <a
-                href="https://www.monnalisa.com/privacy"
-                target="_blank"
-                rel="noreferrer"
-                className="underline"
-              >
-                communications policy
+              {t.marketingNote.before}
+              <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className="underline">
+                {t.marketingNote.link}
               </a>
-              .
+              {t.marketingNote.after}
             </p>
           </div>
 
@@ -383,11 +360,11 @@ function Step1({
               className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
             />
             <span className="text-sm text-gray-700">
-              I have read and accept the{' '}
-              <a href="https://www.monnalisa.com/privacy" target="_blank" rel="noreferrer" className="underline text-gray-900">
-                privacy policy
+              {t.privacyConsent.before}
+              <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className="underline text-gray-900">
+                {t.privacyConsent.link}
               </a>
-              . <span className="text-red-500">*</span>
+              {t.privacyConsent.after} <span className="text-red-500">*</span>
             </span>
           </label>
         </div>
@@ -401,7 +378,7 @@ function Step1({
 
       <StickyCta>
         <Button onClick={handleContinue} isLoading={saving} className="w-full">
-          Save & continue
+          {t.saveContinue}
         </Button>
       </StickyCta>
     </Shell>
@@ -412,13 +389,16 @@ function Step1({
 
 function Step2({
   view,
+  copy,
   onSave,
   onSkip,
 }: {
   view: RecoveryView;
+  copy: RecoveryCopy;
   onSave: (children: NormalizedChild[]) => Promise<void>;
   onSkip: () => Promise<void>;
 }) {
+  const t = copy.step2;
   const [children, setChildren] = useState<NormalizedChild[]>(view.children);
   const [saving, setSaving] = useState(false);
   const [skipping, setSkipping] = useState(false);
@@ -454,44 +434,39 @@ function Step2({
 
   return (
     <Shell>
-      <Greeting
-        name={view.firstName.trim()}
-        subtitle="Tell us about your little ones so we can tailor sizes and birthday surprises."
-      />
+      <Greeting name={view.firstName.trim()} greeting={copy.greeting} subtitle={t.subtitle} />
 
       <div className="space-y-4">
         {children.length === 0 && (
-          <p className="text-sm text-gray-500 text-center py-2">
-            No children added yet. Add one below — it's optional.
-          </p>
+          <p className="text-sm text-gray-500 text-center py-2">{t.noChildren}</p>
         )}
 
         {children.map((child, i) => (
           <div key={i} className="rounded-2xl border border-gray-200 bg-white p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-gray-900">Child {i + 1}</h3>
+              <h3 className="text-sm font-semibold text-gray-900">{t.childTitle(i + 1)}</h3>
               <button
                 type="button"
                 onClick={() => removeChild(i)}
                 className="text-xs text-red-500 hover:text-red-700"
               >
-                Remove
+                {t.remove}
               </button>
             </div>
             <Input
-              label="Name (optional)"
+              label={t.nameLabel}
               value={child.name ?? ''}
               onChange={(e) => setChild(i, { name: e.target.value || undefined })}
             />
             <div className="grid grid-cols-2 gap-3">
               <Input
-                label="Day / Month"
+                label={t.dayMonthLabel}
                 value={child.dayMonth}
                 onChange={(e) => setChild(i, { dayMonth: e.target.value })}
                 placeholder="DD/MM"
               />
               <Input
-                label="Year"
+                label={t.yearLabel}
                 type="number"
                 inputMode="numeric"
                 value={child.year ?? ''}
@@ -499,16 +474,16 @@ function Step2({
                   const y = e.target.value ? Number(e.target.value) : undefined;
                   setChild(i, { year: y, yearKnown: y !== undefined });
                 }}
-                placeholder="e.g. 2018"
+                placeholder={t.yearPlaceholder}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1.5">Boy or girl?</label>
+              <label className="block text-sm font-medium text-gray-600 mb-1.5">{t.genderLabel}</label>
               <div className="flex gap-2">
                 {(
                   [
-                    { value: 'Male', label: 'Boy', icon: '♂', bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
-                    { value: 'Female', label: 'Girl', icon: '♀', bg: 'bg-pink-50', border: 'border-pink-300', text: 'text-pink-700' },
+                    { value: 'Male', label: t.boy, icon: '♂', bg: 'bg-blue-50', border: 'border-blue-300', text: 'text-blue-700' },
+                    { value: 'Female', label: t.girl, icon: '♀', bg: 'bg-pink-50', border: 'border-pink-300', text: 'text-pink-700' },
                   ] as const
                 ).map((opt) => {
                   const active = child.gender === opt.value;
@@ -535,7 +510,7 @@ function Step2({
 
         {children.length < 4 && (
           <Button variant="outline" onClick={addChild} className="w-full">
-            + Add a child
+            {t.addChild}
           </Button>
         )}
       </div>
@@ -543,10 +518,10 @@ function Step2({
       <StickyCta>
         <div className="flex gap-2">
           <Button variant="outline" onClick={handleSkip} isLoading={skipping} disabled={saving} className="flex-1">
-            Skip
+            {t.skip}
           </Button>
           <Button onClick={handleSave} isLoading={saving} disabled={skipping} className="flex-1">
-            Save
+            {t.save}
           </Button>
         </div>
       </StickyCta>
@@ -571,12 +546,18 @@ function Shell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Greeting({ name, subtitle }: { name: string; subtitle: string }) {
+function Greeting({
+  name,
+  greeting,
+  subtitle,
+}: {
+  name: string;
+  greeting: (name: string) => string;
+  subtitle: string;
+}) {
   return (
     <div className="mb-6">
-      <h1 className="text-2xl font-bold text-gray-900">
-        {name ? `Ciao ${name}` : 'Welcome'} 👋
-      </h1>
+      <h1 className="text-2xl font-bold text-gray-900">{greeting(name)} 👋</h1>
       <p className="text-sm text-gray-500 mt-1.5">{subtitle}</p>
     </div>
   );
@@ -590,10 +571,12 @@ function FieldGroup({ children }: { children: React.ReactNode }) {
 function ConfirmedRow({
   label,
   value,
+  editLabel,
   onEdit,
 }: {
   label: string;
   value: string;
+  editLabel: string;
   onEdit: () => void;
 }) {
   return (
@@ -615,7 +598,7 @@ function ConfirmedRow({
         onClick={onEdit}
         className="text-xs font-medium text-gray-500 underline shrink-0"
       >
-        Edit
+        {editLabel}
       </button>
     </div>
   );
