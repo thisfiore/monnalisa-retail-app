@@ -5,9 +5,15 @@ import { useAuth } from '../lib/auth';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 
+// Dev-only convenience: prefill the store-manager test account so local work
+// doesn't require retyping. Gated on import.meta.env.DEV, so production builds
+// ship empty fields (the literals tree-shake away).
+const DEV_EMAIL = import.meta.env.DEV ? 'storemanager1@monnalisa.com' : '';
+const DEV_PASSWORD = import.meta.env.DEV ? 'zW~]@sD4feIAN#I#36y@' : '';
+
 export function Login() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState(DEV_EMAIL);
+  const [password, setPassword] = useState(DEV_PASSWORD);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -76,6 +82,11 @@ export function Login() {
               Sign In
             </Button>
           </form>
+          {import.meta.env.DEV && (
+            <p className="mt-4 text-center text-xs text-gray-400">
+              Dev: store-manager credentials prefilled
+            </p>
+          )}
         </div>
       </div>
     </div>

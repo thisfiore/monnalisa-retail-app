@@ -1,0 +1,38 @@
+rules_version = '2';
+
+// Firestore security rules for the recovery-link store.
+//
+// Design (see docs/recovery-backend.md): the PUBLIC customer page never touches
+// Firestore directly — it goes through the Vercel function `api/recover/[token]`,
+// which uses a service account and therefore BYPASSES these rules. So the only
+// principal these rules need to allow is the authenticated store manager, scoped
+// to their own store via the `store_id` custom claim on the Firebase ID token.
+//
+// Everything else is denied by default.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /recoveryLinks/{token} {
+      // A signed-in manager may only see/write links for their own store.
+      function isOwnerManager() {
+        return request.auth != null
+          && request.auth.token.store_id == resource.data.storeId;
+      }
+      // On create, validate against the incoming doc rather than the (absent) resource.
+      function createsOwnStoreLink() {
+        return request.auth != null
+          && request.auth.token.store_id == request.resource.data.storeId;
+      }
+
+      allow get, list: if isOwnerManager();
+      allow create: if createsOwnStoreLink();
+      allow update, delete: if isOwnerManager();
+    }
+
+    // Deny everything not explicitly matched above.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

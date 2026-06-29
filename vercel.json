@@ -9,7 +9,7 @@
   ],
   "rewrites": [
     {
-      "source": "/api/((?!proxy|health).+)",
+      "source": "/api/((?!proxy|health|send-sms|recover).+)",
       "destination": "/api/proxy?_p=$1"
     },
     {

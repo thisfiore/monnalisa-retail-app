@@ -41,6 +41,13 @@ export const LOCALE_OPTIONS: ReadonlyArray<{ code: string; label: string }> = [
   { code: 'ja_JP', label: 'Japanese (Japan)' },
 ];
 
+const SUPPORTED_LOCALES = new Set(LOCALE_OPTIONS.map((o) => o.code));
+
+/** Whether a locale code is one the picker/back-end accepts. */
+export function isSupportedLocale(code: string | undefined): boolean {
+  return !!code && SUPPORTED_LOCALES.has(code);
+}
+
 /**
  * Strip all whitespace and non-digit characters except leading '+'.
  * Input:  "+39 333 123 1231"  →  "+393331231231"

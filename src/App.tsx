@@ -9,6 +9,13 @@ import { CustomerNew } from './pages/CustomerNew';
 import { CustomerProfile } from './pages/CustomerProfile';
 import { CustomerEdit } from './pages/CustomerEdit';
 import { UAT } from './pages/UAT';
+import { ImportList } from './pages/import/ImportList';
+import { ImportNew } from './pages/import/ImportNew';
+import { ImportReview } from './pages/import/ImportReview';
+import { ImportCustomerEditor } from './pages/import/ImportCustomerEditor';
+import { OutreachDashboard } from './pages/import/OutreachDashboard';
+import { ImportPipelineDocs } from './pages/import/ImportPipelineDocs';
+import { CustomerRecovery } from './pages/import/CustomerRecovery';
 
 function App() {
   return (
@@ -17,6 +24,9 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/login" element={<Login />} />
+
+            {/* Public customer self-recovery page — token-gated, no auth. */}
+            <Route path="/recover/:token" element={<CustomerRecovery />} />
 
             <Route
               path="/"
@@ -59,6 +69,55 @@ function App() {
               element={
                 <ProtectedRoute>
                   <UAT />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/import"
+              element={
+                <ProtectedRoute>
+                  <ImportList />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import-docs"
+              element={
+                <ProtectedRoute>
+                  <ImportPipelineDocs />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import/new"
+              element={
+                <ProtectedRoute>
+                  <ImportNew />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import/:importId"
+              element={
+                <ProtectedRoute>
+                  <ImportReview />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import/:importId/outreach"
+              element={
+                <ProtectedRoute>
+                  <OutreachDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/import/:importId/customer/:customerNo"
+              element={
+                <ProtectedRoute>
+                  <ImportCustomerEditor />
                 </ProtectedRoute>
               }
             />

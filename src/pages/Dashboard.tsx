@@ -206,9 +206,14 @@ export function Dashboard() {
             <p className="text-sm text-gray-500 mt-1">{session.storeName}</p>
           )}
         </div>
-        <Link to="/customers/new">
-          <Button>+ New Customer</Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link to="/import">
+            <Button variant="outline">Import workspace</Button>
+          </Link>
+          <Link to="/customers/new">
+            <Button>+ New Customer</Button>
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 mb-8 max-w-md">

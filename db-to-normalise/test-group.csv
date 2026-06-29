@@ -1,0 +1,4 @@
+Cust SID;Cust ID;First;Last;Store Name;Sub;Country Code;Email;Phone1;Phone2;Compl 1;Compl 2;First Sale Dt;Last Sale Dt;Total Sales;Total Units;YTD Sales;Store Credit;date_excel_serial
+test-001;900001;Francesco;Fiore;Test Group;001_OUTLET_ITA;ITA;;3471682897;;;;;;0;0;0;0;0
+test-002;900002;Ana;Rusu;Test Group;001_OUTLET_ITA;ITA;;+39 334 860 9384;;;;;;0;0;0;0;0
+test-003;900003;Alessia;Scarpocchi;Test Group;001_OUTLET_ITA;ITA;;+39 378 309 6400;;;;;;0;0;0;0;0
