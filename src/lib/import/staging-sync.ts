@@ -13,6 +13,7 @@ import {
   createImport,
   listCustomers,
   listImportsForStore,
+  updateCustomer,
 } from './staging-db';
 import {
   pullCustomers,
@@ -20,8 +21,31 @@ import {
   pushCustomers,
   pushImports,
 } from './recovery-backend/staging-client';
+import { activeRecoveryBackend } from './recovery-store';
+import type { StagingCustomer } from './types';
 
 const BATCH = 500;
+
+/**
+ * Persist a single edited staging customer durably.
+ *
+ * Always writes the local IndexedDB working copy. On the durable (`http`)
+ * backend it ALSO upserts the record to Mongo — otherwise the next read-through
+ * hydration (`ensureHydrated` → `recoverFromBackend`) re-pulls Mongo and clobbers
+ * the local edit, which looks like "the change didn't save". No-op push in
+ * `local` mode, so `getToken` is never called there.
+ */
+export async function persistCustomer(
+  rec: StagingCustomer,
+  getToken: () => Promise<string>,
+): Promise<StagingCustomer> {
+  const saved: StagingCustomer = { ...rec, updatedAt: Date.now() };
+  await updateCustomer(saved);
+  if (activeRecoveryBackend() === 'http') {
+    await pushCustomers([saved], await getToken());
+  }
+  return saved;
+}
 
 export type SyncProgress = { phase: 'imports' | 'customers'; done: number; total: number };
 

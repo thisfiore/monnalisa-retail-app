@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { customerApi } from '../lib/api-client';
 import { fromSearchRecord, type SearchResult } from '../lib/api-transforms';
+import {
+  searchRecoveryCustomers,
+  type RecoverySearchResult,
+} from '../lib/import/recovery-search';
 import { Button } from './Button';
 
 function highlightMatch(text: string, query: string): ReactNode {
@@ -83,7 +87,7 @@ export function Header() {
   };
 
   const SearchIcon = () => (
-    <svg className="w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-4 h-4 text-white/70 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
     </svg>
   );
@@ -183,7 +187,7 @@ export function Header() {
                         setShowResults(true);
                       }
                     }}
-                    className="w-full px-3 py-2 pl-9 bg-white/10 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/15 text-xs text-white placeholder:text-white/40"
+                    className="w-full px-3 py-2 pl-9 bg-white/15 border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white/25 focus:border-white/50 text-xs text-white placeholder:text-white/60"
                     autoComplete="off"
                     data-1p-ignore
                     data-lpignore="true"
@@ -238,7 +242,7 @@ export function Header() {
                         setShowResults(true);
                       }
                     }}
-                    className="w-full px-4 py-2.5 pl-10 bg-white/10 border border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/30 focus:bg-white/15 text-sm text-white placeholder:text-white/40 transition-colors"
+                    className="w-full px-4 py-2.5 pl-10 bg-white/15 border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-white/50 focus:bg-white/25 focus:border-white/50 text-sm text-white placeholder:text-white/60 transition-colors"
                     autoComplete="off"
                     data-1p-ignore
                     data-lpignore="true"

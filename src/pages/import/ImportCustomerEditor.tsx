@@ -4,7 +4,8 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../lib/auth';
-import { getCustomer, updateCustomer } from '../../lib/import/staging-db';
+import { getCustomer } from '../../lib/import/staging-db';
+import { persistCustomer } from '../../lib/import/staging-sync';
 import type { NormalizedChild, RecoveryLink, StagingCustomer } from '../../lib/import/types';
 import { repairRecord, applyRepairPatches } from '../../lib/import/openai-normalize';
 import { refreshStaging } from '../../lib/import/normalize';
@@ -103,8 +104,7 @@ export function ImportCustomerEditor() {
     // Refresh derived flags/status so edits (e.g. fixing a phone to +39…) clear
     // stale badges like "not E.164".
     const refreshed = refreshStaging(rec);
-    await updateCustomer(refreshed);
-    setRec(refreshed);
+    setRec(await persistCustomer(refreshed, getValidToken));
   }
 
   async function handleRunAi() {
@@ -114,8 +114,7 @@ export function ImportCustomerEditor() {
     try {
       const result = await repairRecord(rec);
       const patched = applyRepairPatches(rec, result);
-      await updateCustomer(patched);
-      setRec(patched);
+      setRec(await persistCustomer(patched, getValidToken));
     } catch (e) {
       setAiError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -144,10 +143,8 @@ export function ImportCustomerEditor() {
           ...rec,
           status: 'duplicate',
           flags: { ...rec.flags, alreadyInCrm: true },
-          updatedAt: Date.now(),
         };
-        await updateCustomer(patched);
-        setRec(patched);
+        setRec(await persistCustomer(patched, getValidToken));
       } else {
         setDupNotice('No existing CRM record found.');
       }
@@ -201,10 +198,8 @@ export function ImportCustomerEditor() {
         status: 'created',
         createdAccountId: response.id,
         lastError: undefined,
-        updatedAt: Date.now(),
       };
-      await updateCustomer(patched);
-      setRec(patched);
+      setRec(await persistCustomer(patched, getValidToken));
       // Bounce back to the list after success.
       setTimeout(() => navigate(`/import/${importId}`), 800);
     } catch (e) {
@@ -219,10 +214,8 @@ export function ImportCustomerEditor() {
         ...rec,
         status: 'failed',
         lastError: msg,
-        updatedAt: Date.now(),
       };
-      await updateCustomer(patched);
-      setRec(patched);
+      setRec(await persistCustomer(patched, getValidToken));
     } finally {
       setApproving(false);
     }
@@ -230,16 +223,14 @@ export function ImportCustomerEditor() {
 
   async function handleContacted() {
     if (!rec) return;
-    const patched: StagingCustomer = { ...rec, contactedAt: Date.now(), updatedAt: Date.now() };
-    await updateCustomer(patched);
-    setRec(patched);
+    const patched: StagingCustomer = { ...rec, contactedAt: Date.now() };
+    setRec(await persistCustomer(patched, getValidToken));
   }
 
   async function handleSkip() {
     if (!rec) return;
-    const patched: StagingCustomer = { ...rec, status: 'skipped', updatedAt: Date.now() };
-    await updateCustomer(patched);
-    setRec(patched);
+    const patched: StagingCustomer = { ...rec, status: 'skipped' };
+    setRec(await persistCustomer(patched, getValidToken));
     navigate(`/import/${importId}`);
   }
 
@@ -257,9 +248,8 @@ export function ImportCustomerEditor() {
     // Reflect the new send state + treat an SMS as having contacted the customer.
     setLink((await store.getLinkForCustomer(rec.id).catch(() => undefined)) ?? null);
     if (!rec.contactedAt) {
-      const patched: StagingCustomer = { ...rec, contactedAt: Date.now(), updatedAt: Date.now() };
-      await updateCustomer(patched);
-      setRec(patched);
+      const patched: StagingCustomer = { ...rec, contactedAt: Date.now() };
+      setRec(await persistCustomer(patched, getValidToken));
     }
   }
 
@@ -275,8 +265,7 @@ export function ImportCustomerEditor() {
         return;
       }
       const merged = { ...mergeSubmission(rec, sub), customerSubmittedAt: Date.now() };
-      await updateCustomer(merged);
-      setRec(merged);
+      setRec(await persistCustomer(merged, getValidToken));
       setSyncNotice('Synced the customer’s submitted details.');
     } catch (e) {
       setSyncNotice(`Sync failed: ${e instanceof Error ? e.message : String(e)}`);
