@@ -7,6 +7,7 @@ import {
   searchRecoveryCustomers,
   type RecoverySearchResult,
 } from '../lib/import/recovery-search';
+import { badgeColor } from '../pages/import/badge';
 import { Button } from './Button';
 
 function highlightMatch(text: string, query: string): ReactNode {
@@ -25,6 +26,7 @@ export function Header() {
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [recoveryResults, setRecoveryResults] = useState<RecoverySearchResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
@@ -47,6 +49,7 @@ export function Header() {
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults([]);
+      setRecoveryResults([]);
       setShowResults(false);
       setSearchError(null);
       setIsSearching(false);
@@ -57,25 +60,53 @@ export function Header() {
     setShowResults(true);
     setSearchError(null);
 
+    const storeId = session?.storeId ?? '';
+
     const timer = setTimeout(async () => {
-      try {
-        const token = await getValidToken();
-        const records = await customerApi.search(searchQuery.trim(), token, 10);
-        setSearchResults(records.map(fromSearchRecord));
-      } catch (error) {
-        console.error('Search failed:', error);
-        setSearchError('Search failed. Please try again.');
+      const q = searchQuery.trim();
+      // Recovery search hits the local staging store and can't fail the way the
+      // CRM call can, so run them independently — a CRM error still lets the
+      // recovery hits through, and vice versa.
+      const [crm, recovery] = await Promise.allSettled([
+        getValidToken().then((token) => customerApi.search(q, token, 10)),
+        searchRecoveryCustomers(storeId, q, 10),
+      ]);
+
+      if (crm.status === 'fulfilled') {
+        setSearchResults(crm.value.map(fromSearchRecord));
+      } else {
+        console.error('CRM search failed:', crm.reason);
         setSearchResults([]);
-      } finally {
-        setIsSearching(false);
       }
+
+      if (recovery.status === 'fulfilled') {
+        setRecoveryResults(recovery.value);
+      } else {
+        console.error('Recovery search failed:', recovery.reason);
+        setRecoveryResults([]);
+      }
+
+      // Only show the error banner when BOTH sides failed — otherwise we'd hide
+      // the half that succeeded.
+      setSearchError(
+        crm.status === 'rejected' && recovery.status === 'rejected'
+          ? 'Search failed. Please try again.'
+          : null,
+      );
+      setIsSearching(false);
     }, 300);
 
     return () => clearTimeout(timer);
-  }, [searchQuery, getValidToken]);
+  }, [searchQuery, getValidToken, session?.storeId]);
 
   const handleSelectCustomer = (email: string) => {
     navigate(`/customers/${encodeURIComponent(email)}`);
+    setSearchQuery('');
+    setShowResults(false);
+  };
+
+  const handleSelectRecovery = (result: RecoverySearchResult) => {
+    navigate(`/import/${result.importId}/customer/${encodeURIComponent(result.customerNo)}`);
     setSearchQuery('');
     setShowResults(false);
   };
@@ -101,6 +132,7 @@ export function Header() {
 
   const SearchDropdown = () => {
     if (!showResults || !searchQuery.trim()) return null;
+    const total = searchResults.length + recoveryResults.length;
     return (
       <div className="absolute top-full mt-2 w-full min-w-[300px] bg-white border border-gray-200 rounded-2xl shadow-xl max-h-96 overflow-y-auto z-50">
         {isSearching ? (
@@ -110,32 +142,73 @@ export function Header() {
           </div>
         ) : searchError ? (
           <div className="p-4 text-center text-red-500 text-sm">{searchError}</div>
-        ) : searchResults.length > 0 ? (
+        ) : total > 0 ? (
           <>
-            <div className="px-4 py-2.5 text-xs font-medium text-gray-400 border-b border-gray-100 uppercase tracking-wider">
-              {searchResults.length} result{searchResults.length !== 1 ? 's' : ''}
-            </div>
-            {searchResults.map((result) => (
-              <button
-                key={result.email}
-                type="button"
-                onClick={() => handleSelectCustomer(result.email)}
-                className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 transition-colors cursor-pointer"
-              >
-                <p className="font-medium text-gray-900 text-sm">
-                  {highlightMatch(result.name || `${result.firstName} ${result.lastName}`.trim(), searchQuery)}
-                </p>
-                <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
-                  <span>{highlightMatch(result.email, searchQuery)}</span>
-                  {result.phone && (
-                    <>
-                      <span className="text-gray-300">|</span>
-                      <span>{highlightMatch(result.phone, searchQuery)}</span>
-                    </>
-                  )}
+            {searchResults.length > 0 && (
+              <>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-400 border-b border-gray-100 uppercase tracking-wider">
+                  Customers · {searchResults.length}
                 </div>
-              </button>
-            ))}
+                {searchResults.map((result) => (
+                  <button
+                    key={`crm:${result.email}`}
+                    type="button"
+                    onClick={() => handleSelectCustomer(result.email)}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 transition-colors cursor-pointer"
+                  >
+                    <p className="font-medium text-gray-900 text-sm">
+                      {highlightMatch(result.name || `${result.firstName} ${result.lastName}`.trim(), searchQuery)}
+                    </p>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                      <span>{highlightMatch(result.email, searchQuery)}</span>
+                      {result.phone && (
+                        <>
+                          <span className="text-gray-300">|</span>
+                          <span>{highlightMatch(result.phone, searchQuery)}</span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
+            {recoveryResults.length > 0 && (
+              <>
+                <div className="px-4 py-2.5 text-xs font-medium text-gray-400 border-b border-gray-100 uppercase tracking-wider bg-amber-50/60">
+                  To recover · {recoveryResults.length}
+                </div>
+                {recoveryResults.map((result) => (
+                  <button
+                    key={`rec:${result.id}`}
+                    type="button"
+                    onClick={() => handleSelectRecovery(result)}
+                    className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 transition-colors cursor-pointer"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-gray-900 text-sm">
+                        {highlightMatch(result.name || '(no name)', searchQuery)}
+                      </p>
+                      <span className={`shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded-full ${badgeColor(result.status)}`}>
+                        {result.status}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+                      {result.email ? (
+                        <span>{highlightMatch(result.email, searchQuery)}</span>
+                      ) : (
+                        <span className="italic text-gray-400">no email</span>
+                      )}
+                      {result.phone && (
+                        <>
+                          <span className="text-gray-300">|</span>
+                          <span>{highlightMatch(result.phone, searchQuery)}</span>
+                        </>
+                      )}
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
           </>
         ) : (
           <div className="p-5">
