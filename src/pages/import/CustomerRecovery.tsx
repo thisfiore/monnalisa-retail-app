@@ -205,9 +205,11 @@ function Step1({
   const t = copy.step1;
   const needsEmail = view.needsEmail;
   const needsPhone = view.needsPhone;
-  const initialPhone = useMemo(() => splitPhone(view.phonePrefill || ''), [view.phonePrefill]);
+  // The record is PII-minimised — we only hold masked hints, never the raw
+  // value — so the editable inputs start empty and default to the +39 prefix.
+  const initialPhone = useMemo(() => splitPhone(''), []);
 
-  const [email, setEmail] = useState(view.emailPrefill || '');
+  const [email, setEmail] = useState('');
   const [phonePrefix, setPhonePrefix] = useState(initialPhone.prefix);
   const [phone, setPhone] = useState(initialPhone.rest);
   // We already hold these → start confirmed (green); only the gaps are asked.
