@@ -1,15 +1,12 @@
 /**
  * Free-text search over the "customers to recover" staging records.
  *
- * The CRM has its own server-side search (`/customers/search`); the recovery
- * side has no equivalent endpoint — the records live in the local IndexedDB
- * working copy (`staging-db`). So this filters that store client-side so the
- * global header search can surface recovery customers alongside CRM hits.
- *
- * Pure-ish: it reads the local store and does the matching in memory. Keep the
- * matching logic here (testable) and the IO thin.
+ * Mongo-only: the records live in the durable microservice, which does the
+ * coarse matching server-side (`/staging/customers/search`). We then refine the
+ * candidates with the precise (unit-tested) `matches` rule — so phone hits that
+ * ignore formatting still work — and shape them for the unified header dropdown.
  */
-import { listCustomers } from './staging-db';
+import { searchCustomers } from './recovery-backend/staging-client';
 import type { StagingCustomer, StagingStatus } from './types';
 
 /** A recovery customer shaped for the unified search dropdown. */
@@ -79,21 +76,32 @@ function toResult(rec: StagingCustomer): RecoverySearchResult {
 /**
  * Search recovery (staging) customers for a store. Mirrors the CRM search's
  * contract: trimmed query, capped result count, name/email/phone matching.
- * Returns `[]` for an empty query.
+ * Returns `[]` for an empty query or when no auth token is available (every
+ * search is an authenticated call to the microservice).
  */
 export async function searchRecoveryCustomers(
   storeId: string,
   query: string,
   limit = 10,
+  deps?: { getToken?: () => Promise<string> },
 ): Promise<RecoverySearchResult[]> {
   const q = query.trim().toLowerCase();
-  if (!q || !storeId) return [];
+  if (!q || !storeId || !deps?.getToken) return [];
 
   const tokens = q.split(/\s+/).filter(Boolean);
 
-  const all = await listCustomers({ storeId });
+  // Over-fetch a little: the server filter is coarse, so the precise `matches`
+  // refinement below can drop a few — ask for more candidates than we'll show.
+  let candidates: StagingCustomer[];
+  try {
+    candidates = await searchCustomers(q, Math.max(limit * 4, 40), await deps.getToken());
+  } catch (e) {
+    console.error('Recovery search failed:', e);
+    return [];
+  }
+
   const hits: RecoverySearchResult[] = [];
-  for (const rec of all) {
+  for (const rec of candidates) {
     if (HIDDEN_STATUSES.has(rec.status)) continue;
     if (matches(rec, tokens)) {
       hits.push(toResult(rec));

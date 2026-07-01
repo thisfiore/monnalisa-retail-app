@@ -145,6 +145,23 @@ export type StagingCustomer = {
 };
 
 /**
+ * Single-enum manager outreach funnel on a recovery link.
+ * `new` → `sent` (first SMS) → `manual1`/`manual2` (manager phoned them) →
+ * `dormant` (sleeping). `converted` is terminal, set when the CRM account is
+ * created/updated for this link.
+ */
+export type RecoveryStage = 'new' | 'sent' | 'manual1' | 'manual2' | 'dormant' | 'converted';
+
+/** CRM sync state for a link, mirrored from the recovery-api queue. */
+export type RecoveryCrm = {
+  state: 'none' | 'pending' | 'done' | 'failed';
+  op?: 'create' | 'update';
+  accountId?: string;
+  attempts?: number;
+  lastError?: string;
+};
+
+/**
  * Token → staging-record mapping behind the public `/recover/:token` page.
  * Stored in IndexedDB for the prototype; the same shape moves to a backend KV
  * store in Phase 2 so SMS links can resolve cross-device.
@@ -169,6 +186,10 @@ export type RecoveryLink = {
   sendCount?: number;
   /** last SMS body sent (audit/debug; includes the link). */
   lastSmsBody?: string;
+  /** manager outreach funnel stage (single source of truth for the dashboard). */
+  stage?: RecoveryStage;
+  /** CRM sync state mirrored from the recovery-api queue. */
+  crm?: RecoveryCrm;
 };
 
 export type ImportRecord = {

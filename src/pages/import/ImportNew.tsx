@@ -14,7 +14,7 @@ import {
 } from '../../lib/import/processed-parse';
 import { dedupAndNormalize } from '../../lib/import/normalize';
 import { normalizeRetailRows } from '../../lib/import/retail-normalize';
-import { createImport, addCustomersBatch } from '../../lib/import/staging-db';
+import { saveImport, saveCustomers } from '../../lib/import/staging-sync';
 import type {
   ImportRecord,
   ImportSummary,
@@ -30,7 +30,7 @@ const storeNameOf = (r: AnyRow): string =>
   'storeName' in r ? (r.storeName ?? '') : 'store' in r ? r.store : '';
 
 export function ImportNew() {
-  const { session } = useAuth();
+  const { session, getValidToken } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -117,8 +117,8 @@ export function ImportNew() {
         ownedCsvStores: Array.from(ownedStores),
       };
 
-      await createImport(rec);
-      await addCustomersBatch(customers);
+      await saveImport(rec, getValidToken);
+      await saveCustomers(customers, getValidToken);
       navigate(`/import/${importId}`);
     } catch (e) {
       setError(`Commit failed: ${e instanceof Error ? e.message : String(e)}`);

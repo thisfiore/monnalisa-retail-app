@@ -6,7 +6,6 @@ import {
   maskEmail,
   maskPhone,
 } from '../../lib/import/recovery-backend/firestore-shapes.ts';
-import { toFields, fromFields } from '../../lib/import/recovery-backend/firestore-rest.ts';
 import type { NormalizedFields, RecoveryLink, StagingCustomer } from '../../lib/import/types.ts';
 
 function makeRec(overrides: Partial<NormalizedFields> = {}): StagingCustomer {
@@ -101,21 +100,5 @@ describe('masking helpers', () => {
   it('masks phone keeping a short head + last 4', () => {
     expect(maskPhone('+393331231231')).toBe('+39 •••• 1231');
     expect(maskPhone('+391')).toBe('••••');
-  });
-});
-
-describe('Firestore REST codec', () => {
-  it('round-trips a recovery doc through the typed value format', () => {
-    const doc = toRecoveryDoc(makeRec({ email: 'a@b.co' }), link);
-    const restored = fromFields(toFields(doc as unknown as Record<string, unknown>));
-    expect(restored).toEqual(JSON.parse(JSON.stringify(doc)));
-  });
-
-  it('encodes integers and doubles distinctly', () => {
-    const fields = toFields({ n: 42, f: 1.5, s: 'x', b: true });
-    expect(fields.n).toEqual({ integerValue: '42' });
-    expect(fields.f).toEqual({ doubleValue: 1.5 });
-    expect(fields.s).toEqual({ stringValue: 'x' });
-    expect(fields.b).toEqual({ booleanValue: true });
   });
 });

@@ -9,8 +9,8 @@
  */
 import { RECOVERY_LINK_TTL_MS, generateRecoveryToken } from '../recovery-links';
 import { markLinkSent } from '../sms-send';
-import type { RecoveryLink, StagingCustomer } from '../types';
-import type { RecoveryStore } from '../recovery-store';
+import type { RecoveryLink, RecoveryCrm, StagingCustomer } from '../types';
+import type { RecoveryStore, CrmQueueItem, CrmResultReport } from '../recovery-store';
 import { managerFetch, RecoveryApiError } from './http-client';
 import {
   toRecoveryRecord,
@@ -41,6 +41,8 @@ export function docToLink(
     sentAt: ms(doc.sentAt),
     sendCount: typeof doc.sendCount === 'number' ? doc.sendCount : undefined,
     lastSmsBody: typeof doc.lastSmsBody === 'string' ? doc.lastSmsBody : undefined,
+    stage: (doc.stage as RecoveryLink['stage']) ?? undefined,
+    crm: (doc.crm as RecoveryCrm | undefined) ?? undefined,
   };
 }
 
@@ -138,6 +140,35 @@ export function createHttpRecoveryStore(deps: { getToken: () => Promise<string> 
         await token(),
       )) as { links?: Record<string, unknown>[] };
       return (res.links ?? []).map((d) => docToLink(d, { importId }));
+    },
+
+    async listCrmQueue(importId): Promise<CrmQueueItem[]> {
+      const q = importId ? `&importId=${encodeURIComponent(importId)}` : '';
+      const res = (await managerFetch(`/links?crmQueue=1${q}`, await token())) as {
+        items?: Record<string, unknown>[];
+      };
+      return (res.items ?? []).map((d) => ({
+        token: String(d.token),
+        customerId: String(d.customerRef),
+        importId: String(d.importId ?? importId ?? ''),
+        submission: d.submission as RecoverySubmission | undefined,
+        crm: d.crm as CrmQueueItem['crm'],
+        stage: d.stage as CrmQueueItem['stage'],
+      }));
+    },
+
+    async reportCrmResult(tok, result: CrmResultReport) {
+      await managerFetch(`/links/${encodeURIComponent(tok)}/crm-result`, await token(), {
+        method: 'POST',
+        body: JSON.stringify(result),
+      });
+    },
+
+    async setStage(tok, stage) {
+      await managerFetch(`/links/${encodeURIComponent(tok)}/stage`, await token(), {
+        method: 'POST',
+        body: JSON.stringify({ stage }),
+      });
     },
   };
 }

@@ -1,19 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../lib/auth';
-import { getImport, listCustomers } from '../../lib/import/staging-db';
+import { getImport, pullCustomers } from '../../lib/import/recovery-backend/staging-client';
 import { getRecoveryStore } from '../../lib/import/recovery-store';
-import { ensureHydrated } from '../../lib/import/hydrate';
 import {
   computeFunnel,
+  computeManagerFunnel,
+  managerStage,
   recoveryState,
   isReadyForCrm,
   type RecoveryState,
 } from '../../lib/import/outreach-stats';
+import { processCrmQueue } from '../../lib/import/crm-queue';
 import { EMAIL_REGEX, E164_REGEX } from '../../lib/import/recovery';
-import type { ImportRecord, RecoveryLink, StagingCustomer } from '../../lib/import/types';
+import type {
+  ImportRecord,
+  RecoveryLink,
+  RecoveryStage,
+  StagingCustomer,
+} from '../../lib/import/types';
 
 const STATE_STYLE: Record<RecoveryState, { label: string; cls: string }> = {
   'not-sent': { label: 'Not sent', cls: 'bg-gray-100 text-gray-500' },
@@ -24,30 +31,54 @@ const STATE_STYLE: Record<RecoveryState, { label: string; cls: string }> = {
   expired: { label: 'Expired', cls: 'bg-red-100 text-red-600' },
 };
 
+const STAGE_STYLE: Record<RecoveryStage, { label: string; cls: string }> = {
+  new: { label: 'New', cls: 'bg-gray-100 text-gray-500' },
+  sent: { label: 'SMS sent', cls: 'bg-blue-100 text-blue-700' },
+  manual1: { label: 'Contacted 1×', cls: 'bg-amber-100 text-amber-800' },
+  manual2: { label: 'Contacted 2×', cls: 'bg-orange-100 text-orange-800' },
+  dormant: { label: 'Dormant', cls: 'bg-slate-200 text-slate-600' },
+  converted: { label: 'Converted', cls: 'bg-green-100 text-green-700' },
+};
+
 const fmt = (ms?: number) => (ms ? new Date(ms).toLocaleDateString() : '—');
 
 export function OutreachDashboard() {
   const { importId } = useParams<{ importId: string }>();
   const { session, getValidToken } = useAuth();
 
+  const store = useMemo(() => getRecoveryStore({ getToken: getValidToken }), [getValidToken]);
+
   const [importRec, setImportRec] = useState<ImportRecord | null>(null);
   const [links, setLinks] = useState<RecoveryLink[]>([]);
   const [byId, setById] = useState<Record<string, StagingCustomer>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [processing, setProcessing] = useState(false);
+  const [queueMsg, setQueueMsg] = useState('');
+  const autoRan = useRef(false);
+
+  const refreshLinks = useCallback(async () => {
+    if (!importId) return;
+    const list = await store
+      .listLinksForImport(importId)
+      .catch((e) => {
+        setError(e instanceof Error ? e.message : String(e));
+        return [] as RecoveryLink[];
+      });
+    setLinks(list);
+  }, [importId, store]);
 
   useEffect(() => {
     if (!session || !importId) return;
     (async () => {
-      await ensureHydrated(getValidToken).catch(() => {}); // local cache from Mongo (http mode)
-      const store = getRecoveryStore({ getToken: getValidToken });
+      const token = await getValidToken();
       const [rec, linkList, customers] = await Promise.all([
-        getImport(importId),
+        getImport(importId, token),
         store.listLinksForImport(importId).catch((e) => {
           setError(e instanceof Error ? e.message : String(e));
           return [] as RecoveryLink[];
         }),
-        listCustomers({ storeId: session.storeId, importId }),
+        pullCustomers(importId, token),
       ]);
       setImportRec(rec ?? null);
       setLinks(linkList);
@@ -58,6 +89,57 @@ export function OutreachDashboard() {
   }, [session, importId]);
 
   const funnel = useMemo(() => computeFunnel(links), [links]);
+  const mfunnel = useMemo(() => computeManagerFunnel(links), [links]);
+
+  const runQueue = useCallback(async () => {
+    if (!session || processing) return;
+    setProcessing(true);
+    setQueueMsg('');
+    try {
+      const summary = await processCrmQueue({
+        storeId: session.storeId,
+        getToken: getValidToken,
+        store,
+        importId,
+      });
+      const parts = [
+        summary.created ? `${summary.created} created` : '',
+        summary.updated ? `${summary.updated} updated` : '',
+        summary.failed ? `${summary.failed} failed` : '',
+        summary.skipped ? `${summary.skipped} skipped` : '',
+      ].filter(Boolean);
+      setQueueMsg(
+        summary.total === 0 ? 'Queue empty — nothing to sync.' : `Processed ${summary.total}: ${parts.join(', ')}.`,
+      );
+      await refreshLinks();
+    } catch (e) {
+      setQueueMsg(`Queue failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setProcessing(false);
+    }
+  }, [session, processing, getValidToken, store, importId, refreshLinks]);
+
+  // Auto-drain the CRM queue once on open when there's work pending.
+  useEffect(() => {
+    if (loading || autoRan.current) return;
+    if (mfunnel.crmQueue > 0) {
+      autoRan.current = true;
+      void runQueue();
+    }
+  }, [loading, mfunnel.crmQueue, runQueue]);
+
+  const changeStage = useCallback(
+    async (token: string, stage: RecoveryStage) => {
+      setLinks((prev) => prev.map((l) => (l.token === token ? { ...l, stage } : l)));
+      try {
+        await store.setStage(token, stage);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+        await refreshLinks(); // revert optimistic change on failure
+      }
+    },
+    [store, refreshLinks],
+  );
 
   const rows = useMemo(
     () =>
@@ -109,6 +191,38 @@ export function OutreachDashboard() {
         </div>
       )}
 
+      {/* CRM sync queue — customers who recovered their email get created/updated in the CRM. */}
+      {(mfunnel.crmQueue > 0 || mfunnel.crmFailed > 0 || queueMsg) && (
+        <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 mb-4 flex items-center justify-between gap-4">
+          <div className="text-sm text-emerald-900">
+            <span className="font-semibold">
+              {mfunnel.crmQueue} to create/update in CRM
+            </span>
+            {mfunnel.crmFailed > 0 && (
+              <span className="text-red-600"> · {mfunnel.crmFailed} failed (will retry)</span>
+            )}
+            {queueMsg && <p className="text-xs text-emerald-700 mt-0.5">{queueMsg}</p>}
+          </div>
+          <Button
+            onClick={runQueue}
+            disabled={processing || (mfunnel.crmQueue === 0 && mfunnel.crmFailed === 0)}
+            className="text-sm py-1.5 px-3 shrink-0"
+          >
+            {processing ? 'Syncing…' : `Create/Update in CRM (${mfunnel.crmQueue + mfunnel.crmFailed})`}
+          </Button>
+        </div>
+      )}
+
+      {/* Manager outreach funnel (single-enum stages) */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+        <FunnelCard label="New" value={mfunnel.byStage.new} sub="not yet sent" tint="text-gray-600" />
+        <FunnelCard label="SMS sent" value={mfunnel.byStage.sent} sub="awaiting reply" tint="text-blue-700" />
+        <FunnelCard label="Contacted 1×" value={mfunnel.byStage.manual1} sub="manual call" tint="text-amber-700" />
+        <FunnelCard label="Contacted 2×" value={mfunnel.byStage.manual2} sub="second call" tint="text-orange-700" />
+        <FunnelCard label="Dormant" value={mfunnel.byStage.dormant} sub="sleeping" tint="text-slate-600" />
+        <FunnelCard label="Converted" value={mfunnel.byStage.converted} sub="in CRM" tint="text-green-700" />
+      </div>
+
       {/* Funnel cards */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
         <FunnelCard label="SMS sent" value={funnel.sent} sub={`of ${funnel.minted} minted`} tint="text-blue-700" />
@@ -146,6 +260,7 @@ export function OutreachDashboard() {
                 <th className="text-left py-2.5 px-4">Step 1</th>
                 <th className="text-left py-2.5 px-4">Completed</th>
                 <th className="text-left py-2.5 px-4">Consents</th>
+                <th className="text-left py-2.5 px-4">Outreach</th>
                 <th className="text-right py-2.5 px-4" />
               </tr>
             </thead>
@@ -179,6 +294,12 @@ export function OutreachDashboard() {
                         {!consent && <span className="text-gray-300 text-xs">—</span>}
                       </div>
                     </td>
+                    <td className="py-2.5 px-4">
+                      <StageActions
+                        stage={managerStage(link)}
+                        onChange={(s) => changeStage(link.token, s)}
+                      />
+                    </td>
                     <td className="py-2.5 px-4 text-right">
                       {cust && (
                         <Link to={`/import/${importId}/customer/${encodeURIComponent(cust.customerId)}`}>
@@ -191,7 +312,7 @@ export function OutreachDashboard() {
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="py-8 text-center text-gray-400 text-sm">
+                  <td colSpan={10} className="py-8 text-center text-gray-400 text-sm">
                     No recovery links yet. Select customers in the review queue and send an SMS.
                   </td>
                 </tr>
@@ -232,5 +353,67 @@ function FunnelBar({ label, n, total, tint }: { label: string; n: number; total:
 function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 text-[10px] font-medium">{children}</span>
+  );
+}
+
+/**
+ * Stage badge + the manager's manual-contact funnel actions. `converted` is
+ * terminal (set automatically when the CRM account is created), so it shows no
+ * actions. The two manual-contact steps advance in order; dormant is reversible.
+ */
+function StageActions({
+  stage,
+  onChange,
+}: {
+  stage: RecoveryStage;
+  onChange: (s: RecoveryStage) => void;
+}) {
+  const badge = STAGE_STYLE[stage];
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <span className={`px-2 py-0.5 rounded-md text-xs font-medium ${badge.cls}`}>{badge.label}</span>
+      {stage !== 'converted' && (
+        <div className="flex flex-wrap gap-1">
+          {(stage === 'new' || stage === 'sent') && (
+            <StageBtn onClick={() => onChange('manual1')}>Called 1×</StageBtn>
+          )}
+          {stage === 'manual1' && <StageBtn onClick={() => onChange('manual2')}>Called 2×</StageBtn>}
+          {stage !== 'dormant' && (
+            <StageBtn onClick={() => onChange('dormant')} tone="muted">
+              Dormant
+            </StageBtn>
+          )}
+          {stage === 'dormant' && (
+            <StageBtn onClick={() => onChange('sent')} tone="muted">
+              Reactivate
+            </StageBtn>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function StageBtn({
+  children,
+  onClick,
+  tone = 'default',
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  tone?: 'default' | 'muted';
+}) {
+  const cls =
+    tone === 'muted'
+      ? 'border-gray-200 text-gray-500 hover:bg-gray-50'
+      : 'border-amber-300 text-amber-800 hover:bg-amber-50';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-1.5 py-0.5 rounded border text-[11px] font-medium ${cls}`}
+    >
+      {children}
+    </button>
   );
 }

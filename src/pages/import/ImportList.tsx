@@ -3,8 +3,7 @@ import { Link } from 'react-router-dom';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../lib/auth';
-import { listImportsForStore, countByStatus } from '../../lib/import/staging-db';
-import { ensureHydrated } from '../../lib/import/hydrate';
+import { pullImports, countByStatus } from '../../lib/import/recovery-backend/staging-client';
 import type { ImportRecord, StagingStatus } from '../../lib/import/types';
 import { badgeColor } from './badge';
 
@@ -32,21 +31,21 @@ export function ImportList() {
   useEffect(() => {
     if (!session) return;
     (async () => {
-      // Pull the customers system from Mongo into the local cache (http mode).
       try {
-        await ensureHydrated(getValidToken);
+        const token = await getValidToken();
+        const imports = await pullImports(token);
+        const withCounts = await Promise.all(
+          imports.map(async (rec) => ({
+            rec,
+            counts: await countByStatus(rec.id, await getValidToken()),
+          })),
+        );
+        setRows(withCounts);
       } catch (e) {
         setHydrateError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setIsLoading(false);
       }
-      const imports = await listImportsForStore(session.storeId);
-      const withCounts = await Promise.all(
-        imports.map(async (rec) => ({
-          rec,
-          counts: await countByStatus(session.storeId, rec.id),
-        })),
-      );
-      setRows(withCounts);
-      setIsLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);

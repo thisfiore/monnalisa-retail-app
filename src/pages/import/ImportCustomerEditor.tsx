@@ -4,23 +4,21 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Input } from '../../components/Input';
 import { useAuth } from '../../lib/auth';
-import { getCustomer } from '../../lib/import/staging-db';
+import { getCustomer } from '../../lib/import/recovery-backend/staging-client';
 import { persistCustomer } from '../../lib/import/staging-sync';
 import type { NormalizedChild, RecoveryLink, StagingCustomer } from '../../lib/import/types';
 import { repairRecord, applyRepairPatches } from '../../lib/import/openai-normalize';
 import { refreshStaging } from '../../lib/import/normalize';
 import { getRecoveryStore } from '../../lib/import/recovery-store';
-import { mergeSubmission } from '../../lib/import/recovery-backend/firestore-shapes';
+import {
+  mergeSubmission,
+  type RecoverySubmission,
+} from '../../lib/import/recovery-backend/firestore-shapes';
 import { recoveryUrl, EMAIL_REGEX, E164_REGEX } from '../../lib/import/recovery';
 import { SmsComposer } from './SmsComposer';
 import { customerApi, ApiError } from '../../lib/api-client';
-import {
-  toCreateRequest,
-  formatPhoneE164,
-  LOCALE_OPTIONS,
-  isSupportedLocale,
-} from '../../lib/api-transforms';
-import type { Customer, Child } from '../../lib/types';
+import { LOCALE_OPTIONS, isSupportedLocale } from '../../lib/api-transforms';
+import { createOrUpdateCrmAccount, CrmValidationError } from '../../lib/import/crm-create';
 import { badgeColor } from './badge';
 
 export function ImportCustomerEditor() {
@@ -47,9 +45,34 @@ export function ImportCustomerEditor() {
   useEffect(() => {
     if (!id) return;
     (async () => {
-      const c = await getCustomer(id);
-      setRec(c ?? null);
-      setLink((await store.getLinkForCustomer(id).catch(() => undefined)) ?? null);
+      const token = await getValidToken();
+      const c = await getCustomer(id, token);
+      const lnk = (await store.getLinkForCustomer(id).catch(() => undefined)) ?? null;
+      setLink(lnk);
+
+      // The customer's recovery-page submission lives in the link doc, NOT on the
+      // staging record we just read. Pull it live from Mongo and fold it in on
+      // open, then persist so the recovered email/phone is durable and shows
+      // everywhere — no manual "Sync from customer" needed.
+      let rec = c ?? null;
+      if (rec && lnk) {
+        try {
+          const sub = await store.pullSubmission(lnk.token);
+          if (sub && submissionHasData(sub)) {
+            const merged = mergeSubmission(rec, sub);
+            if (JSON.stringify(merged.normalized) !== JSON.stringify(rec.normalized)) {
+              rec = await persistCustomer(
+                { ...merged, customerSubmittedAt: Date.now() },
+                getValidToken,
+              );
+            }
+          }
+        } catch {
+          // Network/submission read failure shouldn't block opening the record;
+          // the manual "Sync from customer" button remains as a fallback.
+        }
+      }
+      setRec(rec);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -158,57 +181,31 @@ export function ImportCustomerEditor() {
   async function handleApprove() {
     if (!rec || !session) return;
     setApproveError('');
-    if (!EMAIL_REGEX.test(rec.normalized.email)) {
-      setApproveError('Email is required and must be valid.');
-      return;
-    }
-    const normalizedPhone = rec.normalized.phone ? formatPhoneE164(rec.normalized.phone) : '';
-    if (!E164_REGEX.test(normalizedPhone)) {
-      setApproveError('Phone must be in E.164 format (e.g. +39…).');
-      return;
-    }
     setApproving(true);
     try {
       const token = await getValidToken();
-
-      const customer: Partial<Customer> & { gender?: string } = {
-        firstName: rec.normalized.firstName,
-        lastName: rec.normalized.lastName,
-        email: rec.normalized.email,
-        phone: normalizedPhone,
-        marketingConsent: rec.consent?.marketing ?? false,
-        loyaltyEnrollment: rec.consent?.loyalty ?? true,
-        children: rec.normalized.children
-          .filter((c) => c.name && c.year && c.gender && c.height !== undefined && c.shoeSize !== undefined)
-          .map<Child>((c) => ({
-            name: c.name,
-            birthDate: `${c.year}-${c.dayMonth.split('/').reverse().join('-')}`, // DD/MM + year → YYYY-MM-DD
-            gender: c.gender === 'Female' ? 'female' : 'male',
-            height: c.height,
-            shoeSize: c.shoeSize,
-          })),
-      };
-
-      const req = toCreateRequest(customer, rec.normalized.locale || 'it_IT');
-      req.store_id = session.storeId;
-
-      const response = await customerApi.createAccount(req, token);
+      // Same create/update path the recovery→CRM queue uses.
+      const { accountId } = await createOrUpdateCrmAccount(rec, token, session.storeId);
       const patched: StagingCustomer = {
         ...rec,
         status: 'created',
-        createdAccountId: response.id,
+        createdAccountId: accountId,
         lastError: undefined,
       };
       setRec(await persistCustomer(patched, getValidToken));
+      // Reflect the conversion in the outreach funnel (best-effort).
+      if (link) void store.setStage(link.token, 'converted').catch(() => {});
       // Bounce back to the list after success.
       setTimeout(() => navigate(`/import/${importId}`), 800);
     } catch (e) {
       const msg =
-        e instanceof ApiError
-          ? `${e.status}: ${e.message}`
-          : e instanceof Error
-            ? e.message
-            : String(e);
+        e instanceof CrmValidationError
+          ? e.message
+          : e instanceof ApiError
+            ? `${e.status}: ${e.message}`
+            : e instanceof Error
+              ? e.message
+              : String(e);
       setApproveError(msg);
       const patched: StagingCustomer = {
         ...rec,
@@ -246,7 +243,12 @@ export function ImportCustomerEditor() {
   async function handleSmsSent() {
     if (!rec) return;
     // Reflect the new send state + treat an SMS as having contacted the customer.
-    setLink((await store.getLinkForCustomer(rec.id).catch(() => undefined)) ?? null);
+    const fresh = (await store.getLinkForCustomer(rec.id).catch(() => undefined)) ?? null;
+    setLink(fresh);
+    // Advance the outreach funnel to `sent` without downgrading a manual stage.
+    if (fresh && (!fresh.stage || fresh.stage === 'new')) {
+      void store.setStage(fresh.token, 'sent').catch(() => {});
+    }
     if (!rec.contactedAt) {
       const patched: StagingCustomer = { ...rec, contactedAt: Date.now() };
       setRec(await persistCustomer(patched, getValidToken));
@@ -537,17 +539,15 @@ export function ImportCustomerEditor() {
               >
                 Compose &amp; send SMS
               </Button>
-              {store.backend !== 'local' && (
-                <Button
-                  variant="outline"
-                  onClick={handleSyncSubmission}
-                  isLoading={syncing}
-                  disabled={!link}
-                  className="w-full text-sm"
-                >
-                  Sync from customer ⤓
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={handleSyncSubmission}
+                isLoading={syncing}
+                disabled={!link}
+                className="w-full text-sm"
+              >
+                Sync from customer ⤓
+              </Button>
               <Button variant="outline" onClick={handleSave} className="w-full text-sm">
                 Save draft
               </Button>
@@ -598,6 +598,11 @@ export function ImportCustomerEditor() {
       />
     </div>
   );
+}
+
+/** Does a pulled submission carry anything worth folding into the record? */
+function submissionHasData(sub: RecoverySubmission): boolean {
+  return Boolean(sub.email || sub.phone || sub.consent || sub.children?.length);
 }
 
 /** Build the Source-record rows for whichever export this record came from. */

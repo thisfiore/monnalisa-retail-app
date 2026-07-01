@@ -69,7 +69,7 @@ export function Header() {
       // recovery hits through, and vice versa.
       const [crm, recovery] = await Promise.allSettled([
         getValidToken().then((token) => customerApi.search(q, token, 10)),
-        searchRecoveryCustomers(storeId, q, 10),
+        searchRecoveryCustomers(storeId, q, 10, { getToken: getValidToken }),
       ]);
 
       if (crm.status === 'fulfilled') {

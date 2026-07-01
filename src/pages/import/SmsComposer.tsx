@@ -177,7 +177,14 @@ export function SmsComposer({ open, recipients, getToken, onClose, onSent }: Sms
             const link = links[o.customerId];
             const rec = eligible.find((r) => r.id === o.customerId);
             const req = reqs.find((q) => q.customerId === o.customerId);
-            if (link && rec && req) await store.recordSent(rec, link, req.body);
+            if (link && rec && req) {
+              await store.recordSent(rec, link, req.body);
+              // Advance the outreach funnel to `sent` — but never downgrade a
+              // link a manager already moved to manual1/manual2/dormant.
+              if (!link.stage || link.stage === 'new') {
+                await store.setStage(link.token, 'sent').catch(() => {});
+              }
+            }
           }),
       );
       setOutcomes(res);

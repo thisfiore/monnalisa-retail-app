@@ -3,8 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../lib/auth';
-import { getImport, listCustomers } from '../../lib/import/staging-db';
-import { ensureHydrated } from '../../lib/import/hydrate';
+import { getImport, pullCustomers } from '../../lib/import/recovery-backend/staging-client';
 import type { ImportRecord, StagingCustomer, StagingStatus } from '../../lib/import/types';
 import { E164_REGEX } from '../../lib/import/recovery';
 import { isWithinMonths, LAST_SALE_MONTH_RANGES } from '../../lib/import/last-sale';
@@ -38,10 +37,10 @@ export function ImportReview() {
   useEffect(() => {
     if (!session || !importId) return;
     (async () => {
-      await ensureHydrated(getValidToken).catch(() => {}); // populate local cache from Mongo (http mode)
-      const rec = await getImport(importId);
+      const token = await getValidToken();
+      const rec = await getImport(importId, token);
       setImportRec(rec ?? null);
-      const list = await listCustomers({ storeId: session.storeId, importId });
+      const list = await pullCustomers(importId, token);
       setCustomers(list);
       setIsLoading(false);
     })();

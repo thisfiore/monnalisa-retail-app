@@ -14,7 +14,6 @@
     "test:integration": "vitest run src/__tests__/integration"
   },
   "dependencies": {
-    "idb": "^8.0.3",
     "msw": "^2.11.6",
     "openai": "^6.39.0",
     "papaparse": "^5.5.3",
