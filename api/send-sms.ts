@@ -156,11 +156,26 @@ async function sendTwilio(to: string, body: string, customerId: string): Promise
  *   SMSAPI_BASE_URL — host override (default https://api.smsapi.com). Use
  *                     https://api.smsapi.pl for the Polish region.
  *   SMSAPI_TEST     — "1" to validate without sending or charging (test mode).
+ *   SMSAPI_SHORTEN  — "0" to disable link shortening. Default ON: any URL in the
+ *                     body is wrapped in SMSAPI's [%goto:url%] shortener so it is
+ *                     delivered as a tracked cut.li link. SMSAPI blocks RAW links
+ *                     ("Not allowed to send messages with link"); routing through
+ *                     the shortener is their sanctioned way to include a URL.
  *
  * Recipient is sent without the leading "+" (SMSAPI expects bare international
  * digits, e.g. 393331234567). Encoding is forced to UTF-8 so accented copy and
  * emoji are delivered as UCS-2 by SMSAPI's auto-detection.
  */
+/**
+ * Wrap every http(s) URL in SMSAPI's `[%goto:url%]` shortener token so the link
+ * is delivered as a tracked cut.li short link (SMSAPI rejects raw links). No-op
+ * if disabled, if there is no URL, or if the body already uses the token.
+ */
+function shortenLinks(body: string): string {
+  if (process.env.SMSAPI_SHORTEN === '0' || body.includes('[%goto:')) return body;
+  return body.replace(/https?:\/\/\S+/g, (url) => `[%goto:${url}%]`);
+}
+
 async function sendSmsApi(to: string, body: string, customerId: string): Promise<OutMsg> {
   const token = process.env.SMSAPI_TOKEN;
   if (!token) {
@@ -170,7 +185,7 @@ async function sendSmsApi(to: string, body: string, customerId: string): Promise
 
   const form = new URLSearchParams({
     to: to.replace(/^\+/, ''),
-    message: body,
+    message: shortenLinks(body),
     format: 'json',
     encoding: 'utf-8',
   });

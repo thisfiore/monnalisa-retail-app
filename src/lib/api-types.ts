@@ -1,5 +1,5 @@
 /**
- * TypeScript types matching the Monnalisa Loyalty BFF OpenAPI v0.0.8 spec.
+ * TypeScript types matching the Monnalisa Loyalty BFF OpenAPI v0.0.10 spec.
  * These represent the exact JSON shapes sent to / received from the backend.
  */
 
@@ -28,6 +28,7 @@ export type PersonAccountCreateRequest = {
   figlio2?: ChildInfo | null;
   figlio3?: ChildInfo | null;
   figlio4?: ChildInfo | null;
+  Customer_SID__c?: string | null; // Retail "Cust SID" — links the no-email cohort. Never send empty (see api-transforms).
   store_id?: string | null; // Preferred store Salesforce ID
 };
 
@@ -52,6 +53,7 @@ export type PersonAccountUpdateRequest = {
   ShippingCountry?: string | null;
   Region__c?: string | null;
   Country_id__c?: string | null;
+  Customer_SID__c?: string | null; // Retail "Cust SID". Never send empty (see api-transforms).
   store_id?: string | null; // Preferred store Salesforce ID
 };
 
@@ -63,6 +65,7 @@ export type PersonAccountGetResponse = {
   EmailKey__c?: string | null;
   Customer_no__c?: string | null;
   Customer_id__c?: string | null;
+  Customer_SID__c?: string | null; // Retail "Cust SID"
   Type__c?: string | null;
   RetailProcustomerId__c?: string | null;
   Phone?: string | null;

@@ -6,7 +6,8 @@ import { Input } from '../../components/Input';
 import { useAuth } from '../../lib/auth';
 import { getCustomer } from '../../lib/import/recovery-backend/staging-client';
 import { persistCustomer } from '../../lib/import/staging-sync';
-import type { NormalizedChild, RecoveryLink, StagingCustomer } from '../../lib/import/types';
+import type { NormalizedChild, RecoveryLink, RecoveryStage, StagingCustomer } from '../../lib/import/types';
+import { managerStage } from '../../lib/import/outreach-stats';
 import { repairRecord, applyRepairPatches } from '../../lib/import/openai-normalize';
 import { refreshStaging } from '../../lib/import/normalize';
 import { getRecoveryStore } from '../../lib/import/recovery-store';
@@ -38,6 +39,8 @@ export function ImportCustomerEditor() {
   const [smsOpen, setSmsOpen] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncNotice, setSyncNotice] = useState('');
+  const [stageBusy, setStageBusy] = useState(false);
+  const [stageError, setStageError] = useState('');
 
   const store = useMemo(() => getRecoveryStore({ getToken: getValidToken }), [getValidToken]);
   const id = session && customerNo ? `${session.storeId}:${customerNo}` : '';
@@ -255,6 +258,28 @@ export function ImportCustomerEditor() {
     }
   }
 
+  /** Advance the recovery outreach funnel stage for this customer. */
+  async function changeStage(stage: RecoveryStage) {
+    if (!rec) return;
+    setStageBusy(true);
+    setStageError('');
+    try {
+      // The stage lives on the recovery link doc — mint/publish one if the
+      // customer never had a link yet, so the controls always work.
+      let l = link;
+      if (!l) {
+        l = await store.ensureLink(rec);
+        await store.publish(rec, l);
+      }
+      await store.setStage(l.token, stage);
+      setLink({ ...l, stage });
+    } catch (e) {
+      setStageError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setStageBusy(false);
+    }
+  }
+
   /** Pull what the customer submitted on the durable backend into the local record. */
   async function handleSyncSubmission() {
     if (!rec || !link) return;
@@ -314,6 +339,13 @@ export function ImportCustomerEditor() {
           )}
         </div>
       </div>
+
+      <RecoveryFunnelPanel
+        stage={link ? managerStage(link) : 'new'}
+        busy={stageBusy}
+        error={stageError}
+        onChange={changeStage}
+      />
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-6 items-start">
         <div className="min-w-0">
@@ -647,5 +679,152 @@ function Field({ k, v }: { k: string; v: string | undefined }) {
       <dt className="text-xs text-gray-400 uppercase tracking-wider">{k}</dt>
       <dd className="text-gray-700 text-sm">{v || <span className="text-gray-300">—</span>}</dd>
     </div>
+  );
+}
+
+/** Order used to decide which funnel steps are done/active/todo. */
+const STAGE_ORDER: Record<RecoveryStage, number> = {
+  new: 0,
+  sent: 1,
+  manual1: 2,
+  manual2: 3,
+  dormant: 4,
+  converted: 5,
+};
+
+const FUNNEL_STEPS: { key: RecoveryStage; label: string; hint: string }[] = [
+  { key: 'sent', label: 'SMS sent', hint: 'Recovery link sent' },
+  { key: 'manual1', label: 'Manual contact 1', hint: 'Store phoned them' },
+  { key: 'manual2', label: 'Manual contact 2', hint: 'Second call' },
+  { key: 'dormant', label: 'Dormant', hint: 'Sleeping / paused' },
+];
+
+/**
+ * Prominent, top-of-page recovery funnel for a single customer: a horizontal
+ * stepper showing where they are, plus the manager's next-action buttons.
+ */
+function RecoveryFunnelPanel({
+  stage,
+  busy,
+  error,
+  onChange,
+}: {
+  stage: RecoveryStage;
+  busy: boolean;
+  error: string;
+  onChange: (s: RecoveryStage) => void;
+}) {
+  const reached = STAGE_ORDER[stage];
+  const converted = stage === 'converted';
+
+  return (
+    <Card className="mb-6 !p-5 border-2 border-gray-900/10">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Recovery funnel
+          </p>
+          <p className="text-sm text-gray-500">
+            Where this customer is — tap any step to set it, or use the buttons below.
+          </p>
+        </div>
+        {converted && (
+          <span className="px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700">
+            ✓ Converted — in CRM
+          </span>
+        )}
+      </div>
+
+      {/* Horizontal stepper */}
+      <div className="flex items-start overflow-x-auto pb-1">
+        {FUNNEL_STEPS.map((step, i) => {
+          const pos = STAGE_ORDER[step.key];
+          const done = converted || reached > pos;
+          const active = !converted && reached === pos;
+          const isDormant = step.key === 'dormant';
+          const circle = done
+            ? 'bg-emerald-500 text-white border-emerald-500'
+            : active
+              ? isDormant
+                ? 'bg-slate-500 text-white border-slate-500'
+                : 'bg-gray-900 text-white border-gray-900'
+              : 'bg-white text-gray-400 border-gray-300';
+          return (
+            <div key={step.key} className="flex items-start shrink-0">
+              <button
+                type="button"
+                onClick={() => onChange(step.key)}
+                disabled={busy || converted || active}
+                title={active ? `Current stage: ${step.label}` : `Set stage to “${step.label}”`}
+                className="flex flex-col items-center w-28 text-center group disabled:cursor-default enabled:cursor-pointer"
+              >
+                <div
+                  className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-sm font-bold transition ${circle} ${
+                    !busy && !converted && !active
+                      ? 'group-hover:ring-2 group-hover:ring-gray-900/20 group-hover:border-gray-400'
+                      : ''
+                  }`}
+                >
+                  {done ? '✓' : i + 1}
+                </div>
+                <span
+                  className={`text-xs font-medium mt-1.5 ${active ? 'text-gray-900' : done ? 'text-emerald-700' : 'text-gray-500 group-hover:text-gray-900'}`}
+                >
+                  {step.label}
+                </span>
+                <span className="text-[10px] text-gray-400 leading-tight mt-0.5">{step.hint}</span>
+              </button>
+              {i < FUNNEL_STEPS.length - 1 && (
+                <div
+                  className={`h-0.5 w-8 mt-4 ${converted || reached > pos ? 'bg-emerald-400' : 'bg-gray-200'}`}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Next-action buttons */}
+      {!converted && (
+        <div className="flex flex-wrap items-center gap-2 mt-5 pt-4 border-t border-gray-100">
+          <span className="text-xs text-gray-400 uppercase tracking-wider mr-1">Actions</span>
+          {(stage === 'new' || stage === 'sent') && (
+            <Button onClick={() => onChange('manual1')} disabled={busy} className="text-sm py-1.5 px-3">
+              📞 Log 1st manual contact
+            </Button>
+          )}
+          {stage === 'manual1' && (
+            <Button onClick={() => onChange('manual2')} disabled={busy} className="text-sm py-1.5 px-3">
+              📞 Log 2nd manual contact
+            </Button>
+          )}
+          {stage === 'manual2' && (
+            <span className="text-sm text-gray-500">Both manual contacts logged.</span>
+          )}
+          {stage !== 'dormant' ? (
+            <Button
+              variant="outline"
+              onClick={() => onChange('dormant')}
+              disabled={busy}
+              className="text-sm py-1.5 px-3"
+            >
+              😴 Mark as dormant
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              onClick={() => onChange('sent')}
+              disabled={busy}
+              className="text-sm py-1.5 px-3"
+            >
+              ↻ Reactivate
+            </Button>
+          )}
+          {busy && <span className="text-xs text-gray-400">Saving…</span>}
+        </div>
+      )}
+
+      {error && <p className="text-xs text-red-600 mt-2">{error}</p>}
+    </Card>
   );
 }

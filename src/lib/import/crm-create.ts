@@ -27,6 +27,9 @@ function toCustomer(rec: StagingCustomer): Partial<Customer> & { gender?: string
     lastName: rec.normalized.lastName,
     email: rec.normalized.email,
     phone,
+    // Retail imports carry the Cust SID — stamp it onto the CRM account so the
+    // no-email cohort stays linked. Undefined for non-retail imports (never blanked).
+    customerSid: rec.custSid || undefined,
     marketingConsent: rec.consent?.marketing ?? false,
     loyaltyEnrollment: rec.consent?.loyalty ?? true,
     children: rec.normalized.children

@@ -40,6 +40,15 @@ const STAGE_STYLE: Record<RecoveryStage, { label: string; cls: string }> = {
   converted: { label: 'Converted', cls: 'bg-green-100 text-green-700' },
 };
 
+const STAGE_FILTER_CARDS: { key: RecoveryStage; label: string; sub: string; tint: string }[] = [
+  { key: 'new', label: 'New', sub: 'not yet sent', tint: 'text-gray-600' },
+  { key: 'sent', label: 'SMS sent', sub: 'awaiting reply', tint: 'text-blue-700' },
+  { key: 'manual1', label: 'Contacted 1×', sub: 'manual call', tint: 'text-amber-700' },
+  { key: 'manual2', label: 'Contacted 2×', sub: 'second call', tint: 'text-orange-700' },
+  { key: 'dormant', label: 'Dormant', sub: 'sleeping', tint: 'text-slate-600' },
+  { key: 'converted', label: 'Converted', sub: 'in CRM', tint: 'text-green-700' },
+];
+
 const fmt = (ms?: number) => (ms ? new Date(ms).toLocaleDateString() : '—');
 
 export function OutreachDashboard() {
@@ -149,6 +158,13 @@ export function OutreachDashboard() {
     [links, byId],
   );
 
+  // Funnel-stage filter for the recipients table.
+  const [stageFilter, setStageFilter] = useState<RecoveryStage | 'all'>('all');
+  const filteredRows = useMemo(
+    () => (stageFilter === 'all' ? rows : rows.filter(({ link }) => managerStage(link) === stageFilter)),
+    [rows, stageFilter],
+  );
+
   // Customers who finished step 1 with a CRM-pushable contact + consent.
   const readyForCrm = useMemo(
     () =>
@@ -213,14 +229,38 @@ export function OutreachDashboard() {
         </div>
       )}
 
-      {/* Manager outreach funnel (single-enum stages) */}
-      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
-        <FunnelCard label="New" value={mfunnel.byStage.new} sub="not yet sent" tint="text-gray-600" />
-        <FunnelCard label="SMS sent" value={mfunnel.byStage.sent} sub="awaiting reply" tint="text-blue-700" />
-        <FunnelCard label="Contacted 1×" value={mfunnel.byStage.manual1} sub="manual call" tint="text-amber-700" />
-        <FunnelCard label="Contacted 2×" value={mfunnel.byStage.manual2} sub="second call" tint="text-orange-700" />
-        <FunnelCard label="Dormant" value={mfunnel.byStage.dormant} sub="sleeping" tint="text-slate-600" />
-        <FunnelCard label="Converted" value={mfunnel.byStage.converted} sub="in CRM" tint="text-green-700" />
+      {/* Manager outreach funnel (single-enum stages) — click a card to filter the list. */}
+      <div className="grid grid-cols-3 lg:grid-cols-6 gap-3 mb-2">
+        {STAGE_FILTER_CARDS.map((c) => (
+          <FunnelCard
+            key={c.key}
+            label={c.label}
+            value={mfunnel.byStage[c.key]}
+            sub={c.sub}
+            tint={c.tint}
+            active={stageFilter === c.key}
+            onClick={() => setStageFilter((prev) => (prev === c.key ? 'all' : c.key))}
+          />
+        ))}
+      </div>
+      <div className="flex items-center gap-3 mb-6 text-xs text-gray-500">
+        {stageFilter === 'all' ? (
+          <span>Showing all {rows.length} recipient{rows.length === 1 ? '' : 's'}. Tap a card to filter.</span>
+        ) : (
+          <>
+            <span>
+              Filtered to <strong className="text-gray-700">{STAGE_STYLE[stageFilter].label}</strong> —{' '}
+              {filteredRows.length} of {rows.length}.
+            </span>
+            <button
+              type="button"
+              onClick={() => setStageFilter('all')}
+              className="px-2 py-0.5 rounded border border-gray-300 text-gray-600 hover:bg-gray-50 font-medium"
+            >
+              Clear filter
+            </button>
+          </>
+        )}
       </div>
 
       {/* Funnel cards */}
@@ -265,7 +305,7 @@ export function OutreachDashboard() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ link, cust, state }) => {
+              {filteredRows.map(({ link, cust, state }) => {
                 const st = STATE_STYLE[state];
                 const consent = cust?.consent;
                 return (
@@ -310,10 +350,12 @@ export function OutreachDashboard() {
                   </tr>
                 );
               })}
-              {rows.length === 0 && (
+              {filteredRows.length === 0 && (
                 <tr>
                   <td colSpan={10} className="py-8 text-center text-gray-400 text-sm">
-                    No recovery links yet. Select customers in the review queue and send an SMS.
+                    {rows.length === 0
+                      ? 'No recovery links yet. Select customers in the review queue and send an SMS.'
+                      : `No customers in “${STAGE_STYLE[stageFilter as RecoveryStage].label}”.`}
                   </td>
                 </tr>
               )}
@@ -325,13 +367,41 @@ export function OutreachDashboard() {
   );
 }
 
-function FunnelCard({ label, value, sub, tint }: { label: string; value: number; sub: string; tint: string }) {
-  return (
-    <div className="bg-white rounded-lg border p-4">
+function FunnelCard({
+  label,
+  value,
+  sub,
+  tint,
+  onClick,
+  active,
+}: {
+  label: string;
+  value: number;
+  sub: string;
+  tint: string;
+  onClick?: () => void;
+  active?: boolean;
+}) {
+  const body = (
+    <>
       <p className={`text-2xl font-bold ${tint}`}>{value.toLocaleString()}</p>
       <p className="text-xs font-medium text-gray-700 mt-0.5">{label}</p>
       <p className="text-[11px] text-gray-400">{sub}</p>
-    </div>
+    </>
+  );
+  if (!onClick) {
+    return <div className="bg-white rounded-lg border p-4">{body}</div>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`bg-white rounded-lg border p-4 text-left transition hover:border-gray-400 hover:shadow-sm ${
+        active ? 'ring-2 ring-gray-900 border-gray-900' : ''
+      }`}
+    >
+      {body}
+    </button>
   );
 }
 

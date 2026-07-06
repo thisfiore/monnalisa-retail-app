@@ -146,6 +146,12 @@ export function toCreateRequest(
     req.figlio4 = figli.figlio4;
   }
 
+  // Only stamp the SID when we actually have one — never send empty (the CRM
+  // guards against blanking Customer_SID__c, but we avoid the write entirely).
+  if (customer.customerSid) {
+    req.Customer_SID__c = customer.customerSid;
+  }
+
   return req;
 }
 
@@ -201,6 +207,12 @@ export function toUpdateRequest(
   if (customer.postalCode !== undefined) req.ShippingPostalCode = customer.postalCode || null;
   if (customer.country !== undefined) req.ShippingCountry = customer.country || null;
 
+  // Only set the SID when we have a real value — never blank it (per CRM team
+  // guidance). Omitting the key leaves the existing Customer_SID__c untouched.
+  if (customer.customerSid) {
+    req.Customer_SID__c = customer.customerSid;
+  }
+
   return req;
 }
 
@@ -228,6 +240,7 @@ export function fromGetResponse(
     firstName: response.FirstName ?? '',
     lastName: response.LastName ?? '',
     email: response.EmailKey__c ?? '',
+    customerSid: response.Customer_SID__c ?? undefined,
     phone: response.Phone ?? undefined,
     dateOfBirth: response.PersonBirthdate ?? undefined,
     address: response.ShippingStreet ?? undefined,

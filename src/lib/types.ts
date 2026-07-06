@@ -31,6 +31,8 @@ export type Customer = {
   lastName: string;
   email: string;
   phone?: string;
+  /** Retail "Cust SID" — CRM `Customer_SID__c`, links the no-email retail cohort. */
+  customerSid?: string;
   dateOfBirth?: string;
   address?: string;
   city?: string;

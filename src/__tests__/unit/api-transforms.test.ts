@@ -203,6 +203,16 @@ describe('toCreateRequest', () => {
     const req = toCreateRequest(customer);
     expect(req.Gender__c).toBe('Female');
   });
+
+  it('stamps Customer_SID__c when a retail SID is present', () => {
+    const req = toCreateRequest({ firstName: 'Test', customerSid: '-123456789' });
+    expect(req.Customer_SID__c).toBe('-123456789');
+  });
+
+  it('omits Customer_SID__c when no SID is present (never blanked)', () => {
+    expect(toCreateRequest({ firstName: 'Test' })).not.toHaveProperty('Customer_SID__c');
+    expect(toCreateRequest({ firstName: 'Test', customerSid: '' })).not.toHaveProperty('Customer_SID__c');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -285,6 +295,12 @@ describe('toUpdateRequest', () => {
     expect(req).not.toHaveProperty('ShippingPostalCode');
     expect(req).not.toHaveProperty('ShippingCountry');
   });
+
+  it('sets Customer_SID__c only when a real SID is present, never blank', () => {
+    expect(toUpdateRequest({ customerSid: '-123456789' }).Customer_SID__c).toBe('-123456789');
+    expect(toUpdateRequest({ firstName: 'Test' })).not.toHaveProperty('Customer_SID__c');
+    expect(toUpdateRequest({ customerSid: '' })).not.toHaveProperty('Customer_SID__c');
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -317,6 +333,11 @@ describe('fromGetResponse', () => {
     expect(customer.marketingConsent).toBe(true);
     expect(customer.loyaltyEnrollment).toBe(true);
     expect(customer.rank).toBe('Flower');
+  });
+
+  it('maps Customer_SID__c back to customerSid', () => {
+    expect(fromGetResponse({ Customer_SID__c: '-123456789' }).customerSid).toBe('-123456789');
+    expect(fromGetResponse({}).customerSid).toBeUndefined();
   });
 
   it('handles null/missing fields gracefully', () => {

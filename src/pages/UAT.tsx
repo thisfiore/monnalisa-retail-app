@@ -820,6 +820,7 @@ export function UAT() {
                   { field: 'Loyalty Tier / Rank', profile: true, edit: false, read: 'LoyaltyTier__c', write: null, status: 'ok' },
                   { field: 'Total Points', profile: true, edit: false, read: 'TotalQualifyingPoints__c', write: null, status: 'ok' },
                   { field: 'Customer Number', profile: false, edit: false, read: 'Customer_no__c', write: null, status: 'ok' },
+                  { field: 'Customer SID (retail)', profile: false, edit: false, read: 'Customer_SID__c', write: 'Customer_SID__c (recovery→CRM only, never blanked)', status: 'ok' },
                   { field: 'Children (figlio1-4)', profile: false, edit: true, read: 'figlio1-figlio4', write: 'figlio1-figlio4', status: 'ok' },
                   { field: 'Address / Street', profile: false, edit: true, read: 'ShippingStreet', write: 'ShippingStreet', status: 'ok' },
                   { field: 'City', profile: false, edit: true, read: 'ShippingCity', write: 'ShippingCity', status: 'ok' },
