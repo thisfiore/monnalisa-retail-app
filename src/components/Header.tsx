@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, type ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { customerApi } from '../lib/api-client';
 import { fromSearchRecord, type SearchResult } from '../lib/api-transforms';
@@ -274,7 +274,13 @@ export function Header() {
                 <SearchDropdown />
               </div>
 
-              <div className="text-right">
+              <div className="text-right flex items-center justify-end gap-3">
+                <Link
+                  to="/guida"
+                  className="text-xs text-white/60 hover:text-white transition-colors"
+                >
+                  Guida
+                </Link>
                 <button
                   onClick={logout}
                   className="text-xs text-white/60 hover:text-white transition-colors cursor-pointer"
@@ -330,6 +336,12 @@ export function Header() {
               </div>
 
               <div className="flex items-center gap-5">
+                <Link
+                  to="/guida"
+                  className="text-sm text-white/60 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-white/10"
+                >
+                  Guida
+                </Link>
                 <div className="text-right text-sm">
                   <p className="font-medium text-white/90">{session.storeName}</p>
                   {session.salesAssociateName && (

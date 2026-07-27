@@ -9,6 +9,7 @@ import { CustomerNew } from './pages/CustomerNew';
 import { CustomerProfile } from './pages/CustomerProfile';
 import { CustomerEdit } from './pages/CustomerEdit';
 import { UAT } from './pages/UAT';
+import { Guide } from './pages/Guide';
 import { ImportList } from './pages/import/ImportList';
 import { ImportNew } from './pages/import/ImportNew';
 import { ImportReview } from './pages/import/ImportReview';
@@ -27,6 +28,15 @@ function App() {
 
             {/* Public customer self-recovery page — token-gated, no auth. */}
             <Route path="/recover/:token" element={<CustomerRecovery />} />
+
+            {/* Public how-to for store staff. No auth: it has to be reachable
+                from a link or a QR code by someone who cannot sign in yet.
+                Aliases render the same page rather than redirecting, so a
+                shared link keeps its ?lang= parameter whichever spelling
+                someone types. */}
+            <Route path="/guida" element={<Guide />} />
+            <Route path="/guide" element={<Guide />} />
+            <Route path="/tutorial" element={<Guide />} />
 
             <Route
               path="/"

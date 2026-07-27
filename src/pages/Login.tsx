@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
@@ -88,6 +88,12 @@ export function Login() {
             </p>
           )}
         </div>
+
+        <p className="mt-6 text-center text-sm">
+          <Link to="/guida" className="text-white/50 hover:text-white transition-colors">
+            Guida / Guide
+          </Link>
+        </p>
       </div>
     </div>
   );
