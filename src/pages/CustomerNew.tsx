@@ -9,6 +9,8 @@ import { Toggle } from '../components/Toggle';
 import type { Child } from '../lib/types';
 import { customerApi, ApiError } from '../lib/api-client';
 import { toCreateRequest, toUpdateRequest, formatPhoneE164, localeFromCountry, LOCALE_OPTIONS } from '../lib/api-transforms';
+import { PhonePrefixSelect } from '../components/PhonePrefixSelect';
+import { DEFAULT_PHONE_PREFIX } from '../lib/phone-prefixes';
 
 type ValidationStatus = 'idle' | 'checking' | 'valid' | 'invalid';
 
@@ -27,7 +29,7 @@ export function CustomerNew() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
-  const [phoneCountry, setPhoneCountry] = useState('+39');
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_PREFIX);
   const [phone, setPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [address, setAddress] = useState('');
@@ -186,7 +188,7 @@ export function CustomerNew() {
   };
 
   const resetForm = () => {
-    setFirstName(''); setLastName(''); setEmail(''); setPhoneCountry('+39'); setPhone('');
+    setFirstName(''); setLastName(''); setEmail(''); setPhoneCountry(DEFAULT_PHONE_PREFIX); setPhone('');
     setDateOfBirth(''); setAddress(''); setCity(''); setPostalCode(''); setCountry('Italy');
     setPreferredLocale(localeFromCountry('Italy')); setLocaleManuallyEdited(false);
     setChildren([]); setLoyaltyEnrollment(true); setMarketingConsent(false); setPrivacyConsent(false);
@@ -259,10 +261,7 @@ export function CustomerNew() {
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1.5">Phone</label>
               <div className="flex gap-2">
-                <select className={`w-28 ${selectClass}`} value={phoneCountry} onChange={(e) => setPhoneCountry(e.target.value)}>
-                  <option value="+39">+39</option><option value="+1">+1</option><option value="+44">+44</option><option value="+33">+33</option>
-                  <option value="+49">+49</option><option value="+34">+34</option><option value="+41">+41</option><option value="+86">+86</option><option value="+81">+81</option>
-                </select>
+                <PhonePrefixSelect value={phoneCountry} onChange={setPhoneCountry} />
                 <input type="tel" className={`flex-1 ${selectClass} placeholder:text-gray-400 placeholder:italic`} value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="123 4567890" />
               </div>
               {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}

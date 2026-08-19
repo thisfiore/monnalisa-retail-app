@@ -48,6 +48,8 @@ export interface RecoveryCopy {
     phoneLabel: string;
     phoneMissingHint: string;
     phonePlaceholder: string;
+    /** Search box inside the country-calling-code picker. */
+    phoneCountrySearch: string;
     joinTitle: string;
     joinDesc: string;
     marketingTitle: string;
@@ -129,6 +131,7 @@ const en: RecoveryCopy = {
     phoneLabel: 'Mobile number',
     phoneMissingHint: "We don't have your number yet — please add it.",
     phonePlaceholder: '123 456 7890',
+    phoneCountrySearch: 'Search country or code',
     joinTitle: 'Join Monnalisa Fun',
     joinDesc:
       'Earn rewards on every purchase, plus members-only perks for you and your children.',
@@ -217,6 +220,7 @@ const it: RecoveryCopy = {
     phoneLabel: 'Numero di cellulare',
     phoneMissingHint: 'Non abbiamo ancora il tuo numero — aggiungilo qui.',
     phonePlaceholder: '123 456 7890',
+    phoneCountrySearch: 'Cerca paese o prefisso',
     joinTitle: 'Iscriviti a Monnalisa Fun',
     joinDesc:
       'Accumula vantaggi a ogni acquisto, con privilegi riservati per te e i tuoi bambini.',

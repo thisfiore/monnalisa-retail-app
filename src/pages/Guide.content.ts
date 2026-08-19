@@ -72,7 +72,9 @@ export const CONTENT: Record<Lang, GuideContent> = {
           'Ogni negozio ha il proprio account. Entrando, l’app sa già **in quale negozio ti trovi**.',
         actions: [
           'Apri l’app dal browser del tablet o del computer del negozio.',
-          'Inserisci l’[[Email]] del negozio e la [[Password]] che ti sono state consegnate.',
+          // A chip carries its own padding, so avoid eliding straight into one
+          // ("l’[[Email]]" reads as "l’ Email"): keep a real word in between.
+          'Inserisci nel campo [[Email]] l’indirizzo del negozio e nel campo [[Password]] la password che ti sono stati consegnati.',
           'Premi [[Sign In]].',
         ],
         shots: [
@@ -89,7 +91,7 @@ export const CONTENT: Record<Lang, GuideContent> = {
           },
         ],
         note:
-          'Se sbagli password l’app te lo dice subito. Se l’accesso continua a non funzionare, avvisa il tuo responsabile: ==non creare un secondo account==.',
+          'Se sbagli password l’app te lo dice subito. Se l’accesso continua a non funzionare, avvisa il tuo responsabile: ==non creare un secondo account.==',
       },
       {
         id: 'cerca',
@@ -99,7 +101,7 @@ export const CONTENT: Record<Lang, GuideContent> = {
           '==Prima di registrare qualcuno, cercalo sempre.== Serve a non creare due volte lo stesso cliente. La barra di ricerca è in alto ed è disponibile in ogni pagina.',
         actions: [
           'Clicca sulla **barra di ricerca** in alto.',
-          'Scrivi il **nome**, il **numero di telefono** oppure l’**email** del cliente.',
+          'Scrivi il **nome**, il **numero di telefono** oppure l’**indirizzo email** del cliente.',
           'Aspetta un istante: i risultati compaiono da soli mentre scrivi.',
           'Se trovi il cliente, **clicca sul suo nome** per aprire la scheda.',
           'Se non compare nessuno, clicca su [[+ Create New Customer]] per registrarlo (vedi il **passo 4**).',
@@ -240,7 +242,7 @@ export const CONTENT: Record<Lang, GuideContent> = {
           },
         ],
         note:
-          'A wrong password is flagged straight away. If you still cannot sign in, tell your manager — ==do not create a second account==.',
+          'A wrong password is flagged straight away. If you still cannot sign in, tell your manager — ==do not create a second account.==',
       },
       {
         id: 'cerca',

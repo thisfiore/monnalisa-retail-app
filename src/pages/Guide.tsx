@@ -53,7 +53,12 @@ function renderRich(text: string): ReactNode {
       );
     } else {
       out.push(
-        <mark key={match.index} className="bg-pink-100 text-inherit rounded px-1 py-px">
+        // The highlight bleeds via box-shadow rather than padding: padding
+        // would push a trailing full stop away from the word it belongs to.
+        <mark
+          key={match.index}
+          className="bg-pink-100 text-inherit rounded-[2px] shadow-[0_0_0_3px_#fce7f3] box-decoration-clone"
+        >
           {renderRich(mark)}
         </mark>,
       );

@@ -16,14 +16,8 @@ import {
   PRIVACY_URL,
   type RecoveryCopy,
 } from '../../lib/import/recovery-copy';
-
-const PHONE_PREFIXES = ['+39', '+1', '+44', '+33', '+49', '+34', '+41', '+86', '+81'];
-
-function splitPhone(phone: string): { prefix: string; rest: string } {
-  const match = PHONE_PREFIXES.find((p) => phone.startsWith(p));
-  if (match) return { prefix: match, rest: phone.slice(match.length).replace(/\D/g, '') };
-  return { prefix: '+39', rest: phone.replace(/\D/g, '') };
-}
+import { PhonePrefixSelect } from '../../components/PhonePrefixSelect';
+import { splitPhoneNumber } from '../../lib/phone-prefixes';
 
 type Stage = 'loading' | 'invalid' | 'intro' | 'step1' | 'step2' | 'done';
 
@@ -207,11 +201,11 @@ function Step1({
   const needsPhone = view.needsPhone;
   // The record is PII-minimised — we only hold masked hints, never the raw
   // value — so the editable inputs start empty and default to the +39 prefix.
-  const initialPhone = useMemo(() => splitPhone(''), []);
+  const initialPhone = useMemo(() => splitPhoneNumber(''), []);
 
   const [email, setEmail] = useState('');
   const [phonePrefix, setPhonePrefix] = useState(initialPhone.prefix);
-  const [phone, setPhone] = useState(initialPhone.rest);
+  const [phone, setPhone] = useState(initialPhone.national);
   // We already hold these → start confirmed (green); only the gaps are asked.
   const [editingEmail, setEditingEmail] = useState(needsEmail);
   const [editingPhone, setEditingPhone] = useState(needsPhone);
@@ -302,17 +296,11 @@ function Step1({
                 {needsPhone && <span className="text-red-500 ml-1">*</span>}
               </label>
               <div className="flex gap-2">
-                <select
-                  className="w-24 px-2 py-2.5 border border-gray-300 rounded-xl bg-white text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900"
+                <PhonePrefixSelect
                   value={phonePrefix}
-                  onChange={(e) => setPhonePrefix(e.target.value)}
-                >
-                  {PHONE_PREFIXES.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setPhonePrefix}
+                  searchPlaceholder={t.phoneCountrySearch}
+                />
                 <input
                   type="tel"
                   inputMode="tel"

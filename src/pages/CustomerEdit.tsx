@@ -9,6 +9,8 @@ import { Toggle } from '../components/Toggle';
 import type { Child } from '../lib/types';
 import { customerApi, ApiError } from '../lib/api-client';
 import { fromGetResponse, toUpdateRequest, localeFromCountry, LOCALE_OPTIONS } from '../lib/api-transforms';
+import { PhonePrefixSelect } from '../components/PhonePrefixSelect';
+import { DEFAULT_PHONE_PREFIX, splitPhoneNumber } from '../lib/phone-prefixes';
 
 export function CustomerEdit() {
   const { email: emailParam } = useParams<{ email: string }>();
@@ -20,7 +22,7 @@ export function CustomerEdit() {
   const [loadError, setLoadError] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [phoneCountry, setPhoneCountry] = useState('+39');
+  const [phoneCountry, setPhoneCountry] = useState(DEFAULT_PHONE_PREFIX);
   const [phone, setPhone] = useState('');
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [address, setAddress] = useState('');
@@ -54,11 +56,9 @@ export function CustomerEdit() {
         setCountry(initialCountry);
         setPreferredLocale(localeFromCountry(initialCountry));
         if (customerData.phone) {
-          const phoneStr = customerData.phone;
-          const knownPrefixes = ['+39', '+1', '+44', '+33', '+49', '+34', '+41', '+86', '+81'];
-          const matchedPrefix = knownPrefixes.find(p => phoneStr.startsWith(p));
-          if (matchedPrefix) { setPhoneCountry(matchedPrefix); setPhone(phoneStr.slice(matchedPrefix.length).trim()); }
-          else { setPhone(phoneStr); }
+          const { prefix, national } = splitPhoneNumber(customerData.phone);
+          setPhoneCountry(prefix);
+          setPhone(national);
         }
       } catch (error) { console.error('Failed to fetch customer:', error); setLoadError('Failed to load customer data'); }
       finally { setIsLoadingData(false); }
@@ -152,9 +152,11 @@ export function CustomerEdit() {
           <div>
             <label className="block text-sm font-medium text-gray-600 mb-1.5">Phone {!phone && <span className="text-amber-500 font-normal">(missing)</span>}</label>
             <div className="flex gap-2">
-              <select className={`w-28 ${selectClass} ${!phone ? 'border-amber-300 bg-amber-50' : ''}`} value={phoneCountry} onChange={(e) => setPhoneCountry(e.target.value)}>
-                <option value="+39">+39</option><option value="+1">+1</option><option value="+44">+44</option><option value="+33">+33</option><option value="+49">+49</option><option value="+34">+34</option><option value="+41">+41</option><option value="+86">+86</option><option value="+81">+81</option>
-              </select>
+              <PhonePrefixSelect
+                value={phoneCountry}
+                onChange={setPhoneCountry}
+                className={!phone ? 'border-amber-300 bg-amber-50' : 'border-gray-300 hover:border-gray-400'}
+              />
               <input type="tel" className={`flex-1 ${selectClass} placeholder:text-gray-400 placeholder:italic ${!phone ? 'border-amber-300 bg-amber-50' : ''}`} value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="123 4567890" />
             </div>
             {!phone && <p className="text-amber-500 text-sm mt-1">Please add a phone number.</p>}
